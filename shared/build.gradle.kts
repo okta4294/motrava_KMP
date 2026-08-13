@@ -8,6 +8,7 @@ plugins {
     alias(libs.plugins.kotlinSerialization)
     alias(libs.plugins.ksp)
     alias(libs.plugins.room)
+    kotlin("native.cocoapods")
 }
 
 kotlin {
@@ -18,6 +19,24 @@ kotlin {
         iosTarget.binaries.framework {
             baseName = "Shared"
             isStatic = true
+        }
+    }
+    
+    cocoapods {
+        summary = "Shared KMP module"
+        homepage = "https://github.com/myapp/motrava"
+        version = "1.0"
+        ios.deploymentTarget = "14.0"
+        podfile = project.file("../iosApp/Podfile")
+        framework {
+            baseName = "Shared"
+            isStatic = true
+        }
+        pod("GoogleSignIn") {
+            version = "~> 7.0.0"
+        }
+        pod("Mapbox-iOS-SDK", moduleName = "Mapbox") {
+            version = "~> 5.9.0"
         }
     }
     
