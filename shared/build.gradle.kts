@@ -35,7 +35,8 @@ kotlin {
         pod("GoogleSignIn") {
             version = "~> 7.0.0"
         }
-        pod("Mapbox-iOS-SDK", moduleName = "Mapbox") {
+        pod("Mapbox-iOS-SDK") {
+            moduleName = "Mapbox"
             version = "~> 5.9.0"
         }
     }

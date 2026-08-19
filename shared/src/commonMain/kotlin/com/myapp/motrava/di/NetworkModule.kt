@@ -19,7 +19,13 @@ val networkModule = module {
     single {
         val tokenManager = get<TokenManager>()
 
-        HttpClient {
+        HttpClient(createHttpClientEngine()) {
+            install(HttpTimeout) {
+                requestTimeoutMillis = 20_000
+                connectTimeoutMillis = 15_000
+                socketTimeoutMillis = 20_000
+            }
+
             install(ContentNegotiation) {
                 json(Json {
                     prettyPrint = true
