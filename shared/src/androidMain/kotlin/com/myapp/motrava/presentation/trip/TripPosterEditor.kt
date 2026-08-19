@@ -493,23 +493,28 @@ fun TripStickerPreview(
                 androidx.compose.foundation.Canvas(
                     modifier = Modifier.fillMaxSize().padding(bottom = 60.dp, top = 10.dp)
                 ) {
+                    val step = if (route.size > 300) route.size / 300 else 1
+                    val simplified = route.filterIndexed { i, _ -> i % step == 0 || i == route.lastIndex }
                     var minLat = Double.MAX_VALUE; var maxLat = -Double.MAX_VALUE
                     var minLon = Double.MAX_VALUE; var maxLon = -Double.MAX_VALUE
-                    for (p in route) {
+                    for (p in simplified) {
                         if (p.latitude < minLat) minLat = p.latitude
                         if (p.latitude > maxLat) maxLat = p.latitude
                         if (p.longitude < minLon) minLon = p.longitude
                         if (p.longitude > maxLon) maxLon = p.longitude
                     }
-                    val latSpan = maxLat - minLat; val lonSpan = maxLon - minLon
-                    val scaleFactor = if (latSpan == 0.0 || lonSpan == 0.0) 1f else kotlin.math.min(size.width / lonSpan, size.height / latSpan).toFloat() * 0.9f
-                    val centerLat = (minLat + maxLat) / 2.0; val centerLon = (minLon + maxLon) / 2.0
+                    val centerLat = (minLat + maxLat) / 2.0
+                    val centerLon = (minLon + maxLon) / 2.0
+                    val cosLat = kotlin.math.cos(centerLat * kotlin.math.PI / 180.0).toFloat()
+                    val latSpan = (maxLat - minLat).toFloat()
+                    val lonSpan = ((maxLon - minLon) * cosLat).toFloat()
+                    val scaleFactor = if (latSpan == 0f || lonSpan == 0f) 1f else kotlin.math.min(size.width / lonSpan, size.height / latSpan) * 0.9f
                     val centerX = size.width / 2f; val centerY = size.height / 2f
-
+                    
                     val path = androidx.compose.ui.graphics.Path()
-                    route.forEachIndexed { idx, p ->
-                        val x = centerX + ((p.longitude - centerLon) * scaleFactor).toFloat()
-                        val y = centerY - ((p.latitude - centerLat) * scaleFactor).toFloat()
+                    simplified.forEachIndexed { idx, p ->
+                        val x = centerX + ((p.longitude - centerLon).toFloat() * cosLat * scaleFactor)
+                        val y = centerY - ((p.latitude - centerLat).toFloat() * scaleFactor)
                         if (idx == 0) path.moveTo(x, y) else path.lineTo(x, y)
                     }
                     drawPath(path = path, color = Color(0xFFFF6D00), style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round))
@@ -593,30 +598,33 @@ fun TripStickerPreview(
                             .fillMaxWidth()
                             .height(polylineHeight)
                     ) {
+                        val step = if (route.size > 300) route.size / 300 else 1
+                        val simplified = route.filterIndexed { i, _ -> i % step == 0 || i == route.lastIndex }
                         var minLat = Double.MAX_VALUE
                         var maxLat = -Double.MAX_VALUE
                         var minLon = Double.MAX_VALUE
                         var maxLon = -Double.MAX_VALUE
-                        for (p in route) {
+                        for (p in simplified) {
                             if (p.latitude < minLat) minLat = p.latitude
                             if (p.latitude > maxLat) maxLat = p.latitude
                             if (p.longitude < minLon) minLon = p.longitude
                             if (p.longitude > maxLon) maxLon = p.longitude
                         }
-                        val latSpan = maxLat - minLat
-                        val lonSpan = maxLon - minLon
-                        val scaleFactor = if (latSpan == 0.0 || lonSpan == 0.0) 1f else {
-                            kotlin.math.min(size.width / lonSpan, size.height / latSpan).toFloat() * 0.85f
-                        }
                         val centerLat = (minLat + maxLat) / 2.0
                         val centerLon = (minLon + maxLon) / 2.0
+                        val cosLat = kotlin.math.cos(centerLat * kotlin.math.PI / 180.0).toFloat()
+                        val latSpan = (maxLat - minLat).toFloat()
+                        val lonSpan = ((maxLon - minLon) * cosLat).toFloat()
+                        val scaleFactor = if (latSpan == 0f || lonSpan == 0f) 1f else {
+                            kotlin.math.min(size.width / lonSpan, size.height / latSpan) * 0.85f
+                        }
                         val centerX = size.width / 2f
                         val centerY = size.height / 2f
 
                         val path = androidx.compose.ui.graphics.Path()
-                        route.forEachIndexed { idx, p ->
-                            val x = centerX + ((p.longitude - centerLon) * scaleFactor).toFloat()
-                            val y = centerY - ((p.latitude - centerLat) * scaleFactor).toFloat()
+                        simplified.forEachIndexed { idx, p ->
+                            val x = centerX + ((p.longitude - centerLon).toFloat() * cosLat * scaleFactor)
+                            val y = centerY - ((p.latitude - centerLat).toFloat() * scaleFactor)
                             if (idx == 0) path.moveTo(x, y) else path.lineTo(x, y)
                         }
 
@@ -857,9 +865,11 @@ private fun drawTripStickerOnCanvas(canvas: Canvas, trip: TripDetailData, sticke
         // Strava Style Export
         val route = trip.route ?: emptyList()
         if (showManualRoute && route.size >= 2) {
+            val step = if (route.size > 300) route.size / 300 else 1
+            val simplified = route.filterIndexed { i, _ -> i % step == 0 || i == route.lastIndex }
             var minLat = Double.MAX_VALUE; var maxLat = -Double.MAX_VALUE
             var minLon = Double.MAX_VALUE; var maxLon = -Double.MAX_VALUE
-            for (p in route) {
+            for (p in simplified) {
                 if (p.latitude < minLat) minLat = p.latitude
                 if (p.latitude > maxLat) maxLat = p.latitude
                 if (p.longitude < minLon) minLon = p.longitude
@@ -867,15 +877,16 @@ private fun drawTripStickerOnCanvas(canvas: Canvas, trip: TripDetailData, sticke
             }
             val boxLeft = -460f; val boxRight = 460f
             val boxTop = -460f; val boxBottom = 160f // Leave bottom space for stats
-            val latSpan = maxLat - minLat; val lonSpan = maxLon - minLon
-            val scaleFactor = if (latSpan == 0.0 || lonSpan == 0.0) 1f else kotlin.math.min((boxRight - boxLeft) / lonSpan, (boxBottom - boxTop) / latSpan).toFloat() * 0.9f
             val centerLat = (minLat + maxLat) / 2.0; val centerLon = (minLon + maxLon) / 2.0
+            val cosLat = kotlin.math.cos(centerLat * kotlin.math.PI / 180.0).toFloat()
+            val latSpan = (maxLat - minLat).toFloat(); val lonSpan = ((maxLon - minLon) * cosLat).toFloat()
+            val scaleFactor = if (latSpan == 0f || lonSpan == 0f) 1f else kotlin.math.min((boxRight - boxLeft) / lonSpan, (boxBottom - boxTop) / latSpan) * 0.9f
             val boxCenterX = (boxLeft + boxRight) / 2f; val boxCenterY = (boxTop + boxBottom) / 2f
 
             val path = Path()
-            route.forEachIndexed { idx, p ->
-                val x = boxCenterX + ((p.longitude - centerLon) * scaleFactor).toFloat()
-                val y = boxCenterY - ((p.latitude - centerLat) * scaleFactor).toFloat()
+            simplified.forEachIndexed { idx, p ->
+                val x = boxCenterX + ((p.longitude - centerLon).toFloat() * cosLat * scaleFactor)
+                val y = boxCenterY - ((p.latitude - centerLat).toFloat() * scaleFactor)
                 if (idx == 0) path.moveTo(x, y) else path.lineTo(x, y)
             }
             val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.parseColor("#FF6D00"); style = Paint.Style.STROKE; strokeWidth = 8f; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND }
@@ -933,11 +944,13 @@ private fun drawTripStickerOnCanvas(canvas: Canvas, trip: TripDetailData, sticke
         if (stickerFormat != 2) {
             val route = trip.route ?: emptyList()
             if (showManualRoute && route.size >= 2) {
+                val step = if (route.size > 300) route.size / 300 else 1
+                val simplified = route.filterIndexed { i, _ -> i % step == 0 || i == route.lastIndex }
                 var minLat = Double.MAX_VALUE
                 var maxLat = -Double.MAX_VALUE
                 var minLon = Double.MAX_VALUE
                 var maxLon = -Double.MAX_VALUE
-                for (p in route) {
+                for (p in simplified) {
                     if (p.latitude < minLat) minLat = p.latitude
                     if (p.latitude > maxLat) maxLat = p.latitude
                     if (p.longitude < minLon) minLon = p.longitude
@@ -959,21 +972,22 @@ private fun drawTripStickerOnCanvas(canvas: Canvas, trip: TripDetailData, sticke
                 val boxW = boxRight - boxLeft
                 val boxH = boxBottom - boxTop
 
-                val latSpan = maxLat - minLat
-                val lonSpan = maxLon - minLon
-                val scaleFactor = if (latSpan == 0.0 || lonSpan == 0.0) 1f else {
-                    kotlin.math.min(boxW / lonSpan, boxH / latSpan).toFloat() * 0.85f
-                }
-
                 val centerLat = (minLat + maxLat) / 2.0
                 val centerLon = (minLon + maxLon) / 2.0
+                val cosLat = kotlin.math.cos(centerLat * kotlin.math.PI / 180.0).toFloat()
+                val latSpan = (maxLat - minLat).toFloat()
+                val lonSpan = ((maxLon - minLon) * cosLat).toFloat()
+                val scaleFactor = if (latSpan == 0f || lonSpan == 0f) 1f else {
+                    kotlin.math.min(boxW / lonSpan, boxH / latSpan) * 0.85f
+                }
+
                 val boxCenterX = (boxLeft + boxRight) / 2f
                 val boxCenterY = (boxTop + boxBottom) / 2f
 
                 val path = Path()
-                route.forEachIndexed { idx, p ->
-                    val x = boxCenterX + ((p.longitude - centerLon) * scaleFactor).toFloat()
-                    val y = boxCenterY - ((p.latitude - centerLat) * scaleFactor).toFloat()
+                simplified.forEachIndexed { idx, p ->
+                    val x = boxCenterX + ((p.longitude - centerLon).toFloat() * cosLat * scaleFactor)
+                    val y = boxCenterY - ((p.latitude - centerLat).toFloat() * scaleFactor)
                     if (idx == 0) path.moveTo(x, y) else path.lineTo(x, y)
                 }
 

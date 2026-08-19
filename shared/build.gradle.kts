@@ -14,7 +14,8 @@ plugins {
 kotlin {
     listOf(
         iosArm64(),
-        iosSimulatorArm64()
+        iosSimulatorArm64(),
+        iosX64()
     ).forEach { iosTarget ->
         iosTarget.binaries.framework {
             baseName = "Shared"
@@ -35,7 +36,8 @@ kotlin {
         pod("GoogleSignIn") {
             version = "~> 7.0.0"
         }
-        pod("Mapbox-iOS-SDK", moduleName = "Mapbox") {
+        pod("Mapbox-iOS-SDK") {
+            moduleName = "Mapbox"
             version = "~> 5.9.0"
         }
     }
@@ -65,7 +67,7 @@ kotlin {
             implementation(libs.compose.material3)
             implementation(libs.compose.ui)
             implementation(libs.compose.components.resources)
-            implementation(libs.compose.uiToolingPreview)
+            implementation(compose.components.uiToolingPreview)
             implementation(libs.androidx.lifecycle.viewmodelCompose)
             implementation(libs.androidx.lifecycle.runtimeCompose)
             implementation(compose.materialIconsExtended)
@@ -107,6 +109,7 @@ room {
 dependencies {
     add("kspAndroid", libs.room.compiler)
     add("kspIosSimulatorArm64", libs.room.compiler)
+    add("kspIosX64", libs.room.compiler)
     add("kspIosArm64", libs.room.compiler)
 }
 android {

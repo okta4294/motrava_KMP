@@ -1,6 +1,5 @@
 package com.myapp.motrava.data.remote.dto
 
-import androidx.annotation.Keep
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerialName
 
@@ -120,7 +119,6 @@ data class TripDetailResponse(
     val data: TripDetailData?
 )
 
-@Keep
 @Serializable
 data class TripDetailData(
     val id: String,
@@ -164,7 +162,6 @@ data class TripDetailData(
     val route: List<RoutePoint>?
 )
 
-@Keep
 @Serializable
 data class RoutePoint(
     @SerialName("latitude")

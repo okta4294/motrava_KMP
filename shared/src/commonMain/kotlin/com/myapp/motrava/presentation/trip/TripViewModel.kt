@@ -66,10 +66,10 @@ class TripViewModel(
     fun endTrip() {
         viewModelScope.launch {
             try {
-                tripSessionManager.setTripInactive()
-                _tripState.value = TripState.Idle
                 settings.remove("active_trip_id")
                 settings.remove("active_vehicle_id")
+                tripSessionManager.setTripInactive()
+                _tripState.value = TripState.Idle
                 stopTripService()
             } catch (e: Exception) {
                 println("endTrip error: ${e.message}")

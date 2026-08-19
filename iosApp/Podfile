@@ -5,3 +5,25 @@ target 'iosApp' do
   pod 'GoogleSignIn', '~> 7.0.0'
   pod 'Mapbox-iOS-SDK', '~> 5.9.0'
 end
+
+post_install do |installer|
+  installer.pods_project.targets.each do |target|
+    target.build_configurations.each do |config|
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '14.0'
+      config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
+    end
+  end
+
+  reachability_file = File.join(installer.sandbox.root, 'MapboxMobileEvents/MapboxMobileEvents/Reachability/MMEReachability.m')
+  if File.exist?(reachability_file)
+    `chmod +w "#{reachability_file}" 2>/dev/null`
+    text = File.read(reachability_file)
+    new_contents = text.gsub('#import <netinet6/in6.h>', '// #import <netinet6/in6.h>')
+    File.open(reachability_file, "w") { |file| file.puts new_contents }
+  end
+
+  mapbox_binary = File.join(installer.sandbox.root, 'Mapbox-iOS-SDK/dynamic/Mapbox.framework/Mapbox')
+  if File.exist?(mapbox_binary)
+    system("lipo -extract arm64 '#{mapbox_binary}' -output /tmp/mb_arm64 && vtool -set-build-version iossim 14.0 14.0 -replace -output /tmp/mb_arm64_sim /tmp/mb_arm64 && lipo -extract x86_64 '#{mapbox_binary}' -output /tmp/mb_x86_64 && lipo -create /tmp/mb_arm64_sim /tmp/mb_x86_64 -output '#{mapbox_binary}'")
+  end
+end

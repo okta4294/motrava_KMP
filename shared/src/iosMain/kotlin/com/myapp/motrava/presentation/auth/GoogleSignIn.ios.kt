@@ -9,6 +9,7 @@ import kotlin.coroutines.resume
 @Composable
 actual fun getPlatformContext(): Any? = null
 
+@OptIn(kotlinx.cinterop.ExperimentalForeignApi::class)
 actual suspend fun getGoogleIdToken(context: Any?): String? = suspendCancellableCoroutine { cont ->
     val rootViewController = UIApplication.sharedApplication.keyWindow?.rootViewController
     if (rootViewController == null) {

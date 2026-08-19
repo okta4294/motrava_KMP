@@ -32,7 +32,7 @@ class AuthRepository(
                 AuthResult.Error("Google Login Failed: " + response.code() + " " + errorBody)
             }
         } catch (e: Exception) {
-            AuthResult.Error(e.localizedMessage ?: "Unknown error occurred")
+            AuthResult.Error(e.message ?: "Unknown error occurred")
         }
     }
 
@@ -56,7 +56,7 @@ class AuthRepository(
                 AuthResult.Error("Login Failed: " + response.code() + " " + errorBody)
             }
         } catch (e: Exception) {
-            AuthResult.Error(e.localizedMessage ?: "Unknown error occurred")
+            AuthResult.Error(e.message ?: "Unknown error occurred")
         }
     }
 
@@ -80,7 +80,7 @@ class AuthRepository(
                 AuthResult.Error("Register Failed: " + response.code() + " " + errorBody)
             }
         } catch (e: Exception) {
-            AuthResult.Error(e.localizedMessage ?: "Unknown error occurred")
+            AuthResult.Error(e.message ?: "Unknown error occurred")
         }
     }
 

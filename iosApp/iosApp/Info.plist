@@ -4,5 +4,19 @@
 <dict>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
+	<key>CFBundleDisplayName</key>
+	<string>Motrava</string>
+	<key>CFBundleName</key>
+	<string>Motrava</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Motrava needs your location to track your trip and display your real-time position on the map.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Motrava needs background location access to continue tracking your trip even when the app is in the background.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>Motrava needs background location access to continue tracking your trip even when the app is in the background.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+	</array>
 </dict>
 </plist>

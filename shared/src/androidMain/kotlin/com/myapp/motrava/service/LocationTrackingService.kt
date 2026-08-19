@@ -36,6 +36,7 @@ class LocationTrackingService : Service() {
 
     private var lastLocation: Location? = null
     private var currentDistanceMeters: Float = 0f
+    private var isUsingFallbackListener = false
 
     private val isoDateFormat = object : ThreadLocal<SimpleDateFormat>() {
         override fun initialValue() = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply {
@@ -53,6 +54,9 @@ class LocationTrackingService : Service() {
 
         // Restore state if service is recreated by OS (START_STICKY)
         currentDistanceMeters = tripSessionManager.distanceMeters.value
+        if (currentDistanceMeters == 0f) {
+            currentDistanceMeters = prefs.getFloat("saved_distance_meters", 0f)
+        }
         val latLng = tripSessionManager.currentLatLng.value
         if (latLng != null) {
             lastLocation = Location("restored").apply {
@@ -114,6 +118,7 @@ class LocationTrackingService : Service() {
                         stopLocationUpdates()
                         lastLocation = null
                         currentDistanceMeters = 0f
+                        prefs.edit().putFloat("saved_distance_meters", 0f).apply()
                         tripSessionManager.setTripInactive()
                         tripSessionManager.setTripActive(newTripId, vehicleId)
                     }
@@ -143,15 +148,19 @@ class LocationTrackingService : Service() {
                 stopLocationUpdates()
 
                 val currentTrip = tripId
+                val finalDistance = currentDistanceMeters.toDouble()
                 tripId = null
-                prefs.edit().remove("active_trip_id").apply()
+                prefs.edit()
+                    .remove("active_trip_id")
+                    .remove("active_vehicle_id")
+                    .remove("saved_distance_meters")
+                    .apply()
 
                 serviceScope.launch {
                     if (currentTrip != null) {
-                        // Add a small delay to allow the DB to flush
                         try {
-                            apiService.endTrip(currentTrip, tripSessionManager.distanceMeters.value.toDouble())
-                            println("LocationService: [DIAG] REST endTrip called successfully")
+                            apiService.endTrip(currentTrip, finalDistance)
+                            println("LocationService: [DIAG] REST endTrip called successfully. distance=${finalDistance}m")
                         } catch (e: Exception) {
                             android.util.Log.e("LocationService", "REST endTrip failed, flagging for later sync", e)
                             prefs.edit().putString("pending_end_trip", currentTrip).apply()
@@ -198,32 +207,43 @@ class LocationTrackingService : Service() {
     private fun requestLocationUpdates() {
         val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 3000)
             .setMinUpdateIntervalMillis(1000)
+            .setMinUpdateDistanceMeters(2f)
             .build()
 
-        fusedLocationClient.requestLocationUpdates(
-            locationRequest,
-            locationCallback,
-            Looper.getMainLooper()
-        )
-        
-        // Fallback for emulators where FusedLocationProviderClient gets stuck
         try {
-            locationManager.requestLocationUpdates(
-                LocationManager.GPS_PROVIDER,
-                1000L,
-                0f,
-                fallbackLocationListener
+            fusedLocationClient.requestLocationUpdates(
+                locationRequest,
+                locationCallback,
+                Looper.getMainLooper()
             )
+            isUsingFallbackListener = false
         } catch (e: Exception) {
-            Log.e("LocationService", "Failed to request LocationManager updates", e)
+            Log.e("LocationService", "FusedLocationProviderClient failed, using LocationManager fallback", e)
+            try {
+                locationManager.requestLocationUpdates(
+                    LocationManager.GPS_PROVIDER,
+                    2000L,
+                    2f,
+                    fallbackLocationListener
+                )
+                isUsingFallbackListener = true
+            } catch (ex: Exception) {
+                Log.e("LocationService", "LocationManager fallback also failed", ex)
+            }
         }
     }
 
     private fun stopLocationUpdates() {
-        fusedLocationClient.removeLocationUpdates(locationCallback)
         try {
-            locationManager.removeUpdates(fallbackLocationListener)
+            fusedLocationClient.removeLocationUpdates(locationCallback)
         } catch (e: Exception) {}
+
+        if (isUsingFallbackListener) {
+            try {
+                locationManager.removeUpdates(fallbackLocationListener)
+            } catch (e: Exception) {}
+            isUsingFallbackListener = false
+        }
     }
 
     private val fallbackLocationListener = object : LocationListener {
@@ -244,31 +264,54 @@ class LocationTrackingService : Service() {
     }
 
     private fun processLocation(location: Location) {
-        println("LocationService: [DIAG] processLocation called. lat=${location.latitude}, lng=${location.longitude}, provider=${location.provider}")
-        // Filter out 0.0, 0.0 (Maps Afrika bug)
+        println("LocationService: [DIAG] processLocation called. lat=${location.latitude}, lng=${location.longitude}, provider=${location.provider}, accuracy=${if (location.hasAccuracy()) location.accuracy else -1f}")
+        
+        // 1. Filter out 0.0, 0.0 (Maps Afrika bug)
         if (location.latitude == 0.0 && location.longitude == 0.0) {
             println("LocationService: [DIAG] Filtered out 0,0 coordinate")
             return
         }
 
-                // Record all points, even with low accuracy (indoors)
+        // 2. Accuracy Filter: ignore points with inaccurate readings (> 25m)
+        if (location.hasAccuracy() && location.accuracy > 25f) {
+            println("LocationService: [DIAG] Filtered out inaccurate location: accuracy=${location.accuracy}m")
+            return
+        }
 
-                var speedMps = if (location.hasSpeed()) location.speed else {
-                    lastLocation?.let { last ->
-                        val dist = last.distanceTo(location)
-                        val timeDiff = (location.time - last.time) / 1000f
-                        if (timeDiff > 0) dist / timeDiff else 0f
-                    } ?: 0f
-                }
+        val last = lastLocation
+        var distanceDelta = 0f
 
-                lastLocation?.let { last ->
-                    currentDistanceMeters += last.distanceTo(location)
-                }
+        if (last != null) {
+            val dist = last.distanceTo(location)
+            // 3. Stationary drift filter: require minimum movement threshold to prevent noise/jitter when stationary
+            val minMovementThreshold = if (location.hasAccuracy()) (location.accuracy / 3f).coerceIn(2.5f, 5f) else 2.5f
+            if (dist >= minMovementThreshold) {
+                distanceDelta = dist
+                currentDistanceMeters += distanceDelta
                 lastLocation = location
+            } else {
+                println("LocationService: [DIAG] Filtered out stationary jitter (dist=${dist}m < threshold=${minMovementThreshold}m)")
+            }
+        } else {
+            lastLocation = location
+        }
 
-                val speedKmh = speedMps * 3.6f
+        // Calculate speed
+        val speedMps = if (location.hasSpeed() && location.speed > 0.3f) {
+            location.speed
+        } else if (last != null && distanceDelta > 0f) {
+            val timeDiff = (location.time - last.time) / 1000f
+            if (timeDiff > 0) distanceDelta / timeDiff else 0f
+        } else {
+            0f
+        }
 
-                tripSessionManager.updateStats(currentDistanceMeters, speedKmh, Pair(location.latitude, location.longitude))
+        val speedKmh = speedMps * 3.6f
+
+        // Periodically persist distance in prefs
+        prefs.edit().putFloat("saved_distance_meters", currentDistanceMeters).apply()
+
+        tripSessionManager.updateStats(currentDistanceMeters, speedKmh, Pair(location.latitude, location.longitude))
 
         println("LocationService: [DIAG] Sending to WS. distance=${currentDistanceMeters}m, speed=${speedKmh}km/h, tripId=$tripId")
         sendLocationToWebSocket(location, speedKmh)

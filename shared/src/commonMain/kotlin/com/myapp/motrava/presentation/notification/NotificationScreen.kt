@@ -1,4 +1,4 @@
-﻿package com.myapp.motrava.presentation.notification
+package com.myapp.motrava.presentation.notification
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -18,8 +18,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.myapp.motrava.data.local.NotificationEntity
 import org.koin.compose.viewmodel.koinViewModel
-import java.text.SimpleDateFormat
-import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -117,9 +115,11 @@ fun NotificationItem(
                     modifier = Modifier.weight(1f)
                 )
                 
-                val dateFormat = SimpleDateFormat("dd MMM, HH:mm", Locale.getDefault())
+                val minutes = (notification.timestamp / 60000) % 60
+                val hours = (notification.timestamp / 3600000) % 24
+                val timeStr = "${if (hours < 10) "0$hours" else "$hours"}:${if (minutes < 10) "0$minutes" else "$minutes"}"
                 Text(
-                    text = dateFormat.format(Date(notification.timestamp)),
+                    text = timeStr,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

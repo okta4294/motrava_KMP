@@ -25,7 +25,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -33,6 +32,7 @@ import androidx.compose.ui.unit.sp
 import com.myapp.motrava.presentation.theme.*
 import com.myapp.motrava.presentation.trip.TripViewModel
 import com.myapp.motrava.presentation.vehicle.VehicleViewModel
+import com.myapp.motrava.utils.formatDecimal
 import org.koin.compose.viewmodel.koinViewModel
 import com.myapp.motrava.presentation.components.TrackingMapView
 
@@ -134,7 +134,7 @@ fun TrackingScreen(
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Text(
-                            text = "%.0f".format(speedKmh),
+                            text = "${speedKmh.toInt()}",
                             fontSize = 28.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = highlightColor
@@ -164,7 +164,7 @@ fun TrackingScreen(
                     shadowElevation = 4.dp
                 ) {
                     Text(
-                        text = "%.2f km".format(distanceMeters / 1000f),
+                        text = "${(distanceMeters / 1000f).formatDecimal(2)} km",
                         color = Color.White,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold,

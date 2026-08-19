@@ -7,17 +7,17 @@ import androidx.room.Query
 @Dao
 interface LocationPointDao {
     @Insert
-    fun insert(point: LocationPointEntity): Long
+    suspend fun insert(point: LocationPointEntity): Long
 
     @Query("SELECT * FROM location_points WHERE tripId = :tripId AND isSynced = 0 ORDER BY id ASC LIMIT :limit")
-    fun getUnsyncedByTrip(tripId: String, limit: Int = 50): List<LocationPointEntity>
+    suspend fun getUnsyncedByTrip(tripId: String, limit: Int = 50): List<LocationPointEntity>
 
     @Query("SELECT DISTINCT tripId FROM location_points WHERE isSynced = 0")
-    fun getTripsWithUnsyncedPoints(): List<String>
+    suspend fun getTripsWithUnsyncedPoints(): List<String>
 
     @Query("UPDATE location_points SET isSynced = 1 WHERE id IN (:ids)")
-    fun markAsSynced(ids: List<Long>)
+    suspend fun markAsSynced(ids: List<Long>)
 
     @Query("DELETE FROM location_points WHERE tripId = :tripId AND isSynced = 1")
-    fun deleteSyncedByTrip(tripId: String)
+    suspend fun deleteSyncedByTrip(tripId: String)
 }

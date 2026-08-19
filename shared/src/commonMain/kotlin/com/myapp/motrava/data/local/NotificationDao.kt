@@ -9,17 +9,17 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface NotificationDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    fun insertNotification(notification: NotificationEntity)
+    suspend fun insertNotification(notification: NotificationEntity)
 
     @Query("SELECT * FROM notifications ORDER BY timestamp DESC")
     fun getAllNotifications(): Flow<List<NotificationEntity>>
 
     @Query("UPDATE notifications SET isRead = 1 WHERE id = :id")
-    fun markAsRead(id: Long)
+    suspend fun markAsRead(id: Long)
     
     @Query("UPDATE notifications SET isRead = 1")
-    fun markAllAsRead()
+    suspend fun markAllAsRead()
     
     @Query("DELETE FROM notifications")
-    fun clearAll()
+    suspend fun clearAll()
 }

@@ -1,4 +1,4 @@
-﻿package com.myapp.motrava.presentation.dashboard
+package com.myapp.motrava.presentation.dashboard
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -39,12 +39,11 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
-import androidx.compose.ui.tooling.preview.Preview
+import org.jetbrains.compose.ui.tooling.preview.Preview
 import com.myapp.motrava.data.remote.dto.TripHistoryData
 import com.myapp.motrava.data.remote.dto.VehicleData
 import com.myapp.motrava.presentation.theme.*
+import com.myapp.motrava.utils.formatDecimal
 import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -104,11 +103,7 @@ fun DashboardScreen(
                 is DashboardViewModel.DashboardState.Success -> {
                     val state = dashboardState as DashboardViewModel.DashboardState.Success
                     val currentPage by viewModel.currentPage.collectAsState()
-                    PullToRefreshBox(
-                        isRefreshing = isRefreshing,
-                        onRefresh = { viewModel.refreshDashboard() },
-                        modifier = Modifier.fillMaxSize()
-                    ) {
+                    Box(modifier = Modifier.fillMaxSize()) {
                         DashboardContent(
                             state = state,
                             currentPage = currentPage,
@@ -424,7 +419,7 @@ fun TripSummaryCard(completedTrips: Int, totalDistanceKm: Double) {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "%.1f km".format(totalDistanceKm),
+                        text = "${totalDistanceKm.formatDecimal(1)} km",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                         color = Color.White
@@ -446,21 +441,21 @@ fun StatsGrid(totalDistanceKm: Double, avgBbm: Double) {
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // Avg Fuel Card â€” vibrant peach
+        // Avg Fuel Card — vibrant peach
         VibrantStatCard(
             modifier = Modifier.weight(1f),
             title = "Avg Fuel",
-            value = "%.1f".format(avgBbm),
+            value = avgBbm.formatDecimal(1),
             unit = "km/L",
             icon = Icons.Default.LocalGasStation,
             backgroundColor = AccentPeach,
             contentColor = Color(0xFF1A1A2E)
         )
-        // Distance Card â€” vibrant peach
+        // Distance Card — vibrant peach
         VibrantStatCard(
             modifier = Modifier.weight(1f),
             title = "Distance",
-            value = "%.1f".format(totalDistanceKm),
+            value = totalDistanceKm.formatDecimal(1),
             unit = "km",
             icon = Icons.Default.Route,
             backgroundColor = AccentPeach,
@@ -531,11 +526,12 @@ fun VibrantStatCard(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ActivityItem(trip: TripHistoryData, vehicleMap: Map<String, VehicleData>, onClick: () -> Unit) {
     val distanceText = if (trip.totalDistance != null) {
-        "%.1f km".format(trip.totalDistance / 1000.0)
-    } else "â€”"
+        "${(trip.totalDistance / 1000.0).formatDecimal(1)} km"
+    } else "—"
     
     val durationText = if (trip.duration != null) {
         val h = trip.duration / 3600
@@ -660,7 +656,7 @@ fun ActivityItem(trip: TripHistoryData, vehicleMap: Map<String, VehicleData>, on
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = "%.1f L".format(fuelConsumedLiters),
+                                text = "${fuelConsumedLiters.formatDecimal(1)} L",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1
@@ -758,9 +754,9 @@ fun ServiceProgressCard(
             ) {
                 Text(
                     text = if (progressData.needsService) 
-                               "Overdue by %.1f km".format(progressData.accumulatedKm - progressData.intervalKm)
+                               "Overdue by ${(progressData.accumulatedKm - progressData.intervalKm).formatDecimal(1)} km"
                            else 
-                               "%.1f km remaining".format(remainingKm),
+                               "${remainingKm.formatDecimal(1)} km remaining",
                     style = MaterialTheme.typography.labelMedium,
                     color = progressColor,
                     fontWeight = if (isCritical) FontWeight.Bold else FontWeight.Normal
@@ -800,7 +796,7 @@ fun ServiceProgressCard(
     }
 }
 
-@Preview(showBackground = true)
+@Preview
 @Composable
 fun DashboardPreview() {
     MotravaTheme {

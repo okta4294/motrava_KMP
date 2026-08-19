@@ -22,6 +22,7 @@ actual fun platformModule(): Module = module {
             name = dbFilePath
         )
         .setDriver(androidx.sqlite.driver.bundled.BundledSQLiteDriver())
+        .setQueryCoroutineContext(kotlinx.coroutines.Dispatchers.Default)
         .fallbackToDestructiveMigration(dropAllTables = true)
         .build()
     }

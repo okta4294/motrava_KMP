@@ -10,7 +10,7 @@ import platform.CoreGraphics.CGSizeMake
 import platform.Foundation.NSURL
 import platform.UIKit.UIImagePNGRepresentation
 import platform.posix.memcpy
-import cocoapods.Mapbox.*
+import cocoapods.Mapbox_iOS_SDK.*
 import kotlin.coroutines.resume
 
 @OptIn(ExperimentalForeignApi::class)
@@ -21,15 +21,20 @@ actual suspend fun getMapSnapshot(route: List<RoutePoint>, width: Int, height: I
     }
 
     val first = route.first()
+    val coord = cValue<CLLocationCoordinate2D> {
+        latitude = first.latitude
+        longitude = first.longitude
+    }
     val camera = MGLMapCamera.cameraLookingAtCenterCoordinate(
-        platform.CoreLocation.CLLocationCoordinate2DMake(first.latitude, first.longitude),
+        coord,
         fromDistance = 5000.0,
         pitch = 0.0,
         heading = 0.0
     )
     
+    val styleUrl = NSURL.URLWithString("https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json")
     val options = MGLMapSnapshotOptions(
-        styleURL = NSURL.URLWithString("https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json"),
+        styleURL = styleUrl,
         camera = camera,
         size = CGSizeMake(width.toDouble(), height.toDouble())
     )

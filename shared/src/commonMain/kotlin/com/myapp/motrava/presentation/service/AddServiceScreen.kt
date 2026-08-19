@@ -11,7 +11,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.tooling.preview.Preview
+import org.jetbrains.compose.ui.tooling.preview.Preview
 import com.myapp.motrava.presentation.theme.MotravaTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -99,7 +99,7 @@ fun AddServiceScreen(onServiceSaved: () -> Unit) {
     }
 }
 
-@Preview(showBackground = true)
+@Preview
 @Composable
 fun AddServicePreview() {
     MotravaTheme { AddServiceScreen {} }

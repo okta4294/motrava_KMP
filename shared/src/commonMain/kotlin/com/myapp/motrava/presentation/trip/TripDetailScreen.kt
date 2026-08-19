@@ -11,16 +11,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.AndroidView
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
 import com.myapp.motrava.data.remote.dto.RoutePoint
 import com.myapp.motrava.data.remote.dto.TripDetailData
 import com.myapp.motrava.presentation.theme.*
+import com.myapp.motrava.utils.formatDecimal
 import androidx.compose.ui.window.Dialog
 import androidx.compose.foundation.shape.RoundedCornerShape
 import kotlinx.coroutines.launch
@@ -36,11 +32,11 @@ fun TripDetailScreen(
     viewModel: TripDetailViewModel = koinViewModel()
 ) {
     val state by viewModel.state.collectAsState()
-    val context = LocalContext.current
 
     var showPosterEditor by remember { mutableStateOf(false) }
     var initialTransparent by remember { mutableStateOf(false) }
     var cachedSnapshot by remember { mutableStateOf<ImageBitmap?>(null) }
+    var isSnapshotResolved by remember { mutableStateOf(false) }
     var isWaitingForSnapshot by remember { mutableStateOf(false) }
 
     val tripForShare = (state as? TripDetailViewModel.TripDetailState.Success)?.trip
@@ -129,6 +125,7 @@ fun TripDetailScreen(
                                 modifier = Modifier.fillMaxSize(),
                                 onSnapshotAvailable = { bmp ->
                                     cachedSnapshot = bmp
+                                    isSnapshotResolved = true
                                     if (isWaitingForSnapshot) {
                                         isWaitingForSnapshot = false
                                         showPosterEditor = true
@@ -142,7 +139,7 @@ fun TripDetailScreen(
                             trip = trip,
                             onOpenPosterEditor = { isTransparent ->
                                 initialTransparent = isTransparent
-                                if (trip.route.isNullOrEmpty()) {
+                                if (trip.route.isNullOrEmpty() || isSnapshotResolved) {
                                     showPosterEditor = true
                                 } else if (cachedSnapshot == null) {
                                     isWaitingForSnapshot = true
@@ -200,8 +197,8 @@ fun TripStatsCard(trip: TripDetailData, onOpenPosterEditor: (Boolean) -> Unit, o
             )
             Spacer(modifier = Modifier.height(16.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                StatItem(title = "Distance", value = "${trip.totalDistance?.let { "%.2f km".format(it / 1000) } ?: "0 km"}")
-                StatItem(title = "Avg Speed", value = "${trip.averageSpeed?.let { "%.1f km/h".format(it) } ?: "0 km/h"}")
+                StatItem(title = "Distance", value = trip.totalDistance?.let { "${(it / 1000.0).formatDecimal(2)} km" } ?: "0 km")
+                StatItem(title = "Avg Speed", value = trip.averageSpeed?.let { "${it.formatDecimal(1)} km/h" } ?: "0 km/h")
                 StatItem(title = "Duration", value = trip.duration?.let { dur ->
                     val h = dur / 3600
                     val m = (dur % 3600) / 60

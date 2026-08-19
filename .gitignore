@@ -23,3 +23,7 @@ node_modules/
 *.jks
 androidApp/release/
 logcat.txt
+iosApp/Pods/
+**/Pods/
+*.dSYM
+*.dSYM/

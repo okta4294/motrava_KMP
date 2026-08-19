@@ -27,13 +27,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.tooling.preview.Preview
+import org.jetbrains.compose.ui.tooling.preview.Preview
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.LaunchedEffect
 import org.koin.compose.viewmodel.koinViewModel
 import com.myapp.motrava.presentation.theme.*
+import com.myapp.motrava.utils.formatDecimal
 import com.myapp.motrava.presentation.vehicle.VehicleViewModel
 
 @Composable
@@ -233,7 +234,7 @@ fun ProfileScreen(
                                                 color = MaterialTheme.colorScheme.onSurface
                                             )
                                             Text(
-                                                "${vehicle.brand} ${vehicle.model} - ${vehicle.plateNumber}\nTotal: %.1f km".format(distance),
+                                                "${vehicle.brand} ${vehicle.model} - ${vehicle.plateNumber}\nTotal: ${distance.formatDecimal(1)} km",
                                                 style = MaterialTheme.typography.bodySmall,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
@@ -277,7 +278,7 @@ fun ProfileScreen(
     }
 }
 
-@Preview(showBackground = true)
+@Preview
 @Composable
 fun ProfilePreview() {
     MotravaTheme {
