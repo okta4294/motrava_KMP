@@ -1,4 +1,4 @@
-﻿package com.myapp.motrava.presentation.service
+package com.myapp.motrava.presentation.service
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -115,7 +115,7 @@ fun ServiceScreen(
                                     fontWeight = FontWeight.Bold
                                 )
                                 Text(
-                                    "for ${uiState.selectedVehicle?.vehicleName ?: "â€”"}",
+                                    "for ${uiState.selectedVehicle?.vehicleName ?: "—"}",
                                     color = Color.White.copy(alpha = 0.8f),
                                     style = MaterialTheme.typography.bodyMedium,
                                     fontWeight = FontWeight.Medium

@@ -37,6 +37,7 @@ fun TripDetailScreen(
 ) {
     val state by viewModel.state.collectAsState()
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
 
     var showPosterEditor by remember { mutableStateOf(false) }
     var initialTransparent by remember { mutableStateOf(false) }
@@ -46,8 +47,27 @@ fun TripDetailScreen(
     val tripForShare = (state as? TripDetailViewModel.TripDetailState.Success)?.trip
 
     if (showPosterEditor && tripForShare != null) {
-        TripPosterEditorDialog(
-            trip = tripForShare,
+        val distStr = tripForShare.totalDistance?.let { "%.2f km".format(it / 1000) } ?: "0 km"
+        val speedStr = tripForShare.averageSpeed?.let { "%.1f km/h".format(it) } ?: "0 km/h"
+        val durHour = (tripForShare.duration ?: 0) / 3600
+        val durMin = ((tripForShare.duration ?: 0) % 3600) / 60
+        val durSec = (tripForShare.duration ?: 0) % 60
+        val durStr = if (durHour > 0) "${durHour}h ${durMin}m ${durSec}s" else if (durMin > 0) "${durMin}m ${durSec}s" else "${durSec}s"
+
+        val posterData = PosterData(
+            title = "MOTRAVA ACTIVITY",
+            subtitle = tripForShare.vehicleName ?: "MY RIDE",
+            stat1Label = "Distance",
+            stat1Value = distStr,
+            stat2Label = "Avg Speed",
+            stat2Value = speedStr,
+            stat3Label = "Duration",
+            stat3Value = durStr,
+            route = tripForShare.route
+        )
+
+        PosterEditorDialog(
+            posterData = posterData,
             initialIsTransparentBg = initialTransparent,
             liveMapSnapshot = cachedSnapshot,
             onDismiss = { showPosterEditor = false }
@@ -110,7 +130,7 @@ fun TripDetailScreen(
                     val trip = (state as TripDetailViewModel.TripDetailState.Success).trip
                     
                     Column(modifier = Modifier.fillMaxSize()) {
-                        // Map showing the route
+                        // Map showing the route (live view only — snapshot taken on-demand)
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -126,14 +146,10 @@ fun TripDetailScreen(
                             }
                             MapView(
                                 route = displayRoute,
-                                modifier = Modifier.fillMaxSize(),
-                                onSnapshotAvailable = { bmp ->
-                                    cachedSnapshot = bmp
-                                    if (isWaitingForSnapshot) {
-                                        isWaitingForSnapshot = false
-                                        showPosterEditor = true
-                                    }
-                                }
+                                modifier = Modifier.fillMaxSize()
+                                // onSnapshotAvailable removed: snapshot is now taken on-demand
+                                // via getMapSnapshot() when Export button is tapped, giving
+                                // reliable high-res map tiles instead of live view screenshot.
                             )
                         }
                         
@@ -143,11 +159,23 @@ fun TripDetailScreen(
                             onOpenPosterEditor = { isTransparent ->
                                 initialTransparent = isTransparent
                                 if (trip.route.isNullOrEmpty()) {
+                                    // No route data — open editor without map background
                                     showPosterEditor = true
-                                } else if (cachedSnapshot == null) {
-                                    isWaitingForSnapshot = true
+                                } else if (cachedSnapshot != null) {
+                                    // Already have a cached high-res snapshot
+                                    showPosterEditor = true
                                 } else {
-                                    showPosterEditor = true
+                                    // Take high-res snapshot using MapLibre offline snapshotter
+                                    isWaitingForSnapshot = true
+                                    coroutineScope.launch {
+                                        cachedSnapshot = getMapSnapshot(
+                                            route = trip.route ?: emptyList(),
+                                            width = 1080,
+                                            height = 1920
+                                        )
+                                        isWaitingForSnapshot = false
+                                        showPosterEditor = true
+                                    }
                                 }
                             },
                             onDeleteTrip = { viewModel.deleteTrip(trip.id, onSuccess = onNavigateBack) }
@@ -254,4 +282,3 @@ fun StatItem(title: String, value: String) {
         )
     }
 }
-

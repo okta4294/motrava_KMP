@@ -78,8 +78,8 @@ import androidx.compose.ui.graphics.asAndroidBitmap
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-actual fun TripPosterEditorDialog(
-    trip: TripDetailData,
+actual fun PosterEditorDialog(
+    posterData: PosterData,
     initialIsTransparentBg: Boolean,
     liveMapSnapshot: ImageBitmap?,
     onDismiss: () -> Unit
@@ -145,7 +145,7 @@ actual fun TripPosterEditorDialog(
                             coroutineScope.launch {
                                 exportEditedTripPoster(
                                     context = context,
-                                    trip = trip,
+                                    posterData = posterData,
                                     imageUri = selectedImageUri,
                                     stickerStyle = stickerStyle,
                                     stickerFormat = stickerFormat,
@@ -289,7 +289,7 @@ actual fun TripPosterEditorDialog(
                                 .fillMaxSize()
                         ) {
                             TripStickerPreview(
-                                trip = trip,
+                                posterData = posterData,
                                 stickerStyle = stickerStyle,
                                 stickerFormat = stickerFormat,
                                 isLightMode = selectedImageUri == null && !isTransparentBg && stickerFormat == 4,
@@ -422,7 +422,7 @@ actual fun TripPosterEditorDialog(
 
 @Composable
 fun TripStickerPreview(
-    trip: TripDetailData,
+    posterData: PosterData,
     stickerStyle: Int,
     stickerFormat: Int,
     isLightMode: Boolean = false,
@@ -430,12 +430,6 @@ fun TripStickerPreview(
     liveMapSnapshot: android.graphics.Bitmap? = null,
     modifier: Modifier = Modifier
 ) {
-    val distStr = trip.totalDistance?.let { "%.2f km".format(it / 1000) } ?: "0 km"
-    val speedStr = trip.averageSpeed?.let { "%.1f km/h".format(it) } ?: "0 km/h"
-    val durHour = (trip.duration ?: 0) / 3600
-    val durMin = ((trip.duration ?: 0) % 3600) / 60
-    val durSec = (trip.duration ?: 0) % 60
-    val durStr = if (durHour > 0) "${durHour}h ${durMin}m ${durSec}s" else if (durMin > 0) "${durMin}m ${durSec}s" else "${durSec}s"
 
     val containerModifier = if (stickerStyle == 1) {
         modifier
@@ -488,31 +482,41 @@ fun TripStickerPreview(
                     .align(Alignment.TopEnd)
                     .padding(top = 16.dp, end = 16.dp)
             )
-            val route = trip.route ?: emptyList()
-            if (showManualRoute && route.size >= 2) {
+            
+            if (showManualRoute) {
                 androidx.compose.foundation.Canvas(
                     modifier = Modifier.fillMaxSize().padding(bottom = 60.dp, top = 10.dp)
                 ) {
                     var minLat = Double.MAX_VALUE; var maxLat = -Double.MAX_VALUE
                     var minLon = Double.MAX_VALUE; var maxLon = -Double.MAX_VALUE
-                    for (p in route) {
-                        if (p.latitude < minLat) minLat = p.latitude
-                        if (p.latitude > maxLat) maxLat = p.latitude
-                        if (p.longitude < minLon) minLon = p.longitude
-                        if (p.longitude > maxLon) maxLon = p.longitude
-                    }
-                    val latSpan = maxLat - minLat; val lonSpan = maxLon - minLon
-                    val scaleFactor = if (latSpan == 0.0 || lonSpan == 0.0) 1f else kotlin.math.min(size.width / lonSpan, size.height / latSpan).toFloat() * 0.9f
-                    val centerLat = (minLat + maxLat) / 2.0; val centerLon = (minLon + maxLon) / 2.0
-                    val centerX = size.width / 2f; val centerY = size.height / 2f
+                    val allRoutes = posterData.multiRoutes ?: (posterData.route?.let { listOf(it) } ?: emptyList())
+                    
+                    if (allRoutes.isNotEmpty()) {
+                        for (r in allRoutes) {
+                            for (p in r) {
+                                if (p.latitude < minLat) minLat = p.latitude
+                                if (p.latitude > maxLat) maxLat = p.latitude
+                                if (p.longitude < minLon) minLon = p.longitude
+                                if (p.longitude > maxLon) maxLon = p.longitude
+                            }
+                        }
+                        val latSpan = maxLat - minLat; val lonSpan = maxLon - minLon
+                        val scaleFactor = if (latSpan == 0.0 || lonSpan == 0.0) 1f else kotlin.math.min(size.width / lonSpan, size.height / latSpan).toFloat() * 0.9f
+                        val centerLat = (minLat + maxLat) / 2.0; val centerLon = (minLon + maxLon) / 2.0
+                        val centerX = size.width / 2f; val centerY = size.height / 2f
 
-                    val path = androidx.compose.ui.graphics.Path()
-                    route.forEachIndexed { idx, p ->
-                        val x = centerX + ((p.longitude - centerLon) * scaleFactor).toFloat()
-                        val y = centerY - ((p.latitude - centerLat) * scaleFactor).toFloat()
-                        if (idx == 0) path.moveTo(x, y) else path.lineTo(x, y)
+                        for (r in allRoutes) {
+                            if (r.size >= 2) {
+                                val path = androidx.compose.ui.graphics.Path()
+                                r.forEachIndexed { idx, p ->
+                                    val x = centerX + ((p.longitude - centerLon) * scaleFactor).toFloat()
+                                    val y = centerY - ((p.latitude - centerLat) * scaleFactor).toFloat()
+                                    if (idx == 0) path.moveTo(x, y) else path.lineTo(x, y)
+                                }
+                                drawPath(path = path, color = Color(0xFFFF6D00), style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round))
+                            }
+                        }
                     }
-                    drawPath(path = path, color = Color(0xFFFF6D00), style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round))
                 }
             }
 
@@ -520,22 +524,22 @@ fun TripStickerPreview(
             Column(
                 modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(16.dp)
             ) {
-                Text(text = (trip.vehicleName ?: "Outdoor activity").uppercase(), fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                Text(text = posterData.subtitle.uppercase(), fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
                     Column(modifier = Modifier.padding(end = 32.dp)) {
-                        Text("Time", fontSize = 10.sp, color = Color(0xFFE0E5F5))
-                        Text(durStr, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        Text(posterData.stat3Label, fontSize = 10.sp, color = Color(0xFFE0E5F5))
+                        Text(posterData.stat3Value, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
                     }
                     Column {
-                        Text("Avg Speed", fontSize = 10.sp, color = Color(0xFFE0E5F5))
-                        Text(speedStr, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        Text(posterData.stat2Label, fontSize = 10.sp, color = Color(0xFFE0E5F5))
+                        Text(posterData.stat2Value, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
                     }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 Column {
-                    Text("Distance", fontSize = 10.sp, color = Color(0xFFE0E5F5))
-                    Text(distStr, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    Text(posterData.stat1Label, fontSize = 10.sp, color = Color(0xFFE0E5F5))
+                    Text(posterData.stat1Value, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
                 }
             }
         }
@@ -546,14 +550,14 @@ fun TripStickerPreview(
         ) {
             if (stickerFormat != 3) {
                 Text(
-                    text = "MOTRAVA ACTIVITY",
+                    text = posterData.title,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = Color(0xFFE0E5F5),
                     letterSpacing = 1.sp
                 )
                 Text(
-                    text = (trip.vehicleName ?: "MY RIDE").uppercase(),
+                    text = posterData.subtitle.uppercase(),
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White
@@ -565,28 +569,27 @@ fun TripStickerPreview(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        PreviewStatCol(isLightMode = isLightMode, label = "Distance", value = distStr)
-                        PreviewStatCol(isLightMode = isLightMode, label = "Avg Speed", value = speedStr)
+                        PreviewStatCol(isLightMode = isLightMode, label = posterData.stat1Label, value = posterData.stat1Value)
+                        PreviewStatCol(isLightMode = isLightMode, label = posterData.stat2Label, value = posterData.stat2Value)
                     }
                     Spacer(modifier = Modifier.height(6.dp))
-                    PreviewStatCol(isLightMode = isLightMode, label = "Duration", value = durStr)
+                    PreviewStatCol(isLightMode = isLightMode, label = posterData.stat3Label, value = posterData.stat3Value)
                 } else {
                     // 3 Kolom / Sejajar (Format 0 & 2)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        PreviewStatCol(isLightMode = isLightMode, label = "Distance", value = distStr)
-                        PreviewStatCol(isLightMode = isLightMode, label = "Duration", value = durStr)
-                        PreviewStatCol(isLightMode = isLightMode, label = "Avg Speed", value = speedStr)
+                        PreviewStatCol(isLightMode = isLightMode, label = posterData.stat1Label, value = posterData.stat1Value)
+                        PreviewStatCol(isLightMode = isLightMode, label = posterData.stat3Label, value = posterData.stat3Value)
+                        PreviewStatCol(isLightMode = isLightMode, label = posterData.stat2Label, value = posterData.stat2Value)
                     }
                 }
             }
 
             if (stickerFormat != 2) {
                 if (stickerFormat != 3) Spacer(modifier = Modifier.height(10.dp))
-                val route = trip.route ?: emptyList()
-                if (showManualRoute && route.size >= 2) {
+                if (showManualRoute) {
                     val polylineHeight = if (stickerFormat == 3) 140.dp else 85.dp
                     androidx.compose.foundation.Canvas(
                         modifier = Modifier
@@ -597,34 +600,46 @@ fun TripStickerPreview(
                         var maxLat = -Double.MAX_VALUE
                         var minLon = Double.MAX_VALUE
                         var maxLon = -Double.MAX_VALUE
-                        for (p in route) {
-                            if (p.latitude < minLat) minLat = p.latitude
-                            if (p.latitude > maxLat) maxLat = p.latitude
-                            if (p.longitude < minLon) minLon = p.longitude
-                            if (p.longitude > maxLon) maxLon = p.longitude
-                        }
-                        val latSpan = maxLat - minLat
-                        val lonSpan = maxLon - minLon
-                        val scaleFactor = if (latSpan == 0.0 || lonSpan == 0.0) 1f else {
-                            kotlin.math.min(size.width / lonSpan, size.height / latSpan).toFloat() * 0.85f
-                        }
-                        val centerLat = (minLat + maxLat) / 2.0
-                        val centerLon = (minLon + maxLon) / 2.0
-                        val centerX = size.width / 2f
-                        val centerY = size.height / 2f
+                        
+                        val allRoutes = posterData.multiRoutes ?: (posterData.route?.let { listOf(it) } ?: emptyList())
+                        
+                        if (allRoutes.isNotEmpty()) {
+                            for (r in allRoutes) {
+                                for (p in r) {
+                                    if (p.latitude < minLat) minLat = p.latitude
+                                    if (p.latitude > maxLat) maxLat = p.latitude
+                                    if (p.longitude < minLon) minLon = p.longitude
+                                    if (p.longitude > maxLon) maxLon = p.longitude
+                                }
+                            }
+                            
+                            val latSpan = maxLat - minLat
+                            val lonSpan = maxLon - minLon
+                            val scaleFactor = if (latSpan == 0.0 || lonSpan == 0.0) 1f else {
+                                kotlin.math.min(size.width / lonSpan, size.height / latSpan).toFloat() * 0.85f
+                            }
+                            val centerLat = (minLat + maxLat) / 2.0
+                            val centerLon = (minLon + maxLon) / 2.0
+                            val centerX = size.width / 2f
+                            val centerY = size.height / 2f
 
-                        val path = androidx.compose.ui.graphics.Path()
-                        route.forEachIndexed { idx, p ->
-                            val x = centerX + ((p.longitude - centerLon) * scaleFactor).toFloat()
-                            val y = centerY - ((p.latitude - centerLat) * scaleFactor).toFloat()
-                            if (idx == 0) path.moveTo(x, y) else path.lineTo(x, y)
-                        }
+                            for (r in allRoutes) {
+                                if (r.size >= 2) {
+                                    val path = androidx.compose.ui.graphics.Path()
+                                    r.forEachIndexed { idx, p ->
+                                        val x = centerX + ((p.longitude - centerLon) * scaleFactor).toFloat()
+                                        val y = centerY - ((p.latitude - centerLat) * scaleFactor).toFloat()
+                                        if (idx == 0) path.moveTo(x, y) else path.lineTo(x, y)
+                                    }
 
-                        drawPath(
-                            path = path,
-                            color = Color(0xFFFF6D00),
-                            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 3.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round)
-                        )
+                                    drawPath(
+                                        path = path,
+                                        color = Color(0xFFFF6D00),
+                                        style = androidx.compose.ui.graphics.drawscope.Stroke(width = 3.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round)
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -650,7 +665,7 @@ private fun PreviewStatCol(label: String, value: String, isLightMode: Boolean = 
 
 private suspend fun exportEditedTripPoster(
     context: Context,
-    trip: TripDetailData,
+    posterData: PosterData,
     imageUri: Uri?,
     stickerStyle: Int,
     stickerFormat: Int,
@@ -748,7 +763,7 @@ private suspend fun exportEditedTripPoster(
         canvas.translate(centerX, centerY)
         canvas.scale(scale, scale)
         val isFullMapBackground = liveMapSnapshot != null && stickerFormat == 4 && imageUri == null && !isTransparentBg
-        drawTripStickerOnCanvas(canvas, trip, stickerStyle, stickerFormat, isLightMode, !isFullMapBackground)
+        drawTripStickerOnCanvas(canvas, posterData, stickerStyle, stickerFormat, isLightMode, !isFullMapBackground)
         canvas.restore()
 
         // 3. Save to MediaStore
@@ -791,7 +806,7 @@ private suspend fun exportEditedTripPoster(
     }
 }
 
-private fun drawTripStickerOnCanvas(canvas: Canvas, trip: TripDetailData, stickerStyle: Int, stickerFormat: Int, isLightMode: Boolean = false, showManualRoute: Boolean = true) {
+private fun drawTripStickerOnCanvas(canvas: Canvas, posterData: PosterData, stickerStyle: Int, stickerFormat: Int, isLightMode: Boolean = false, showManualRoute: Boolean = true) {
     val semiBoldTypeface = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
         android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, 600, false)
     } else {
@@ -846,24 +861,21 @@ private fun drawTripStickerOnCanvas(canvas: Canvas, trip: TripDetailData, sticke
         letterSpacing = 0.15f
     }
 
-    val distStr = trip.totalDistance?.let { "%.2f km".format(it / 1000) } ?: "0 km"
-    val speedStr = trip.averageSpeed?.let { "%.1f km/h".format(it) } ?: "0 km/h"
-    val durHour = (trip.duration ?: 0) / 3600
-    val durMin = ((trip.duration ?: 0) % 3600) / 60
-    val durSec = (trip.duration ?: 0) % 60
-    val durStr = if (durHour > 0) "${durHour}h ${durMin}m ${durSec}s" else if (durMin > 0) "${durMin}m ${durSec}s" else "${durSec}s"
+    // (Moved to posterData fields)
 
     if (stickerFormat == 4) {
         // Strava Style Export
-        val route = trip.route ?: emptyList()
-        if (showManualRoute && route.size >= 2) {
+        val allRoutes = posterData.multiRoutes ?: (posterData.route?.let { listOf(it) } ?: emptyList())
+        if (showManualRoute && allRoutes.isNotEmpty()) {
             var minLat = Double.MAX_VALUE; var maxLat = -Double.MAX_VALUE
             var minLon = Double.MAX_VALUE; var maxLon = -Double.MAX_VALUE
-            for (p in route) {
-                if (p.latitude < minLat) minLat = p.latitude
-                if (p.latitude > maxLat) maxLat = p.latitude
-                if (p.longitude < minLon) minLon = p.longitude
-                if (p.longitude > maxLon) maxLon = p.longitude
+            for (r in allRoutes) {
+                for (p in r) {
+                    if (p.latitude < minLat) minLat = p.latitude
+                    if (p.latitude > maxLat) maxLat = p.latitude
+                    if (p.longitude < minLon) minLon = p.longitude
+                    if (p.longitude > maxLon) maxLon = p.longitude
+                }
             }
             val boxLeft = -460f; val boxRight = 460f
             val boxTop = -460f; val boxBottom = 160f // Leave bottom space for stats
@@ -872,14 +884,18 @@ private fun drawTripStickerOnCanvas(canvas: Canvas, trip: TripDetailData, sticke
             val centerLat = (minLat + maxLat) / 2.0; val centerLon = (minLon + maxLon) / 2.0
             val boxCenterX = (boxLeft + boxRight) / 2f; val boxCenterY = (boxTop + boxBottom) / 2f
 
-            val path = Path()
-            route.forEachIndexed { idx, p ->
-                val x = boxCenterX + ((p.longitude - centerLon) * scaleFactor).toFloat()
-                val y = boxCenterY - ((p.latitude - centerLat) * scaleFactor).toFloat()
-                if (idx == 0) path.moveTo(x, y) else path.lineTo(x, y)
+            for (r in allRoutes) {
+                if (r.size >= 2) {
+                    val path = Path()
+                    r.forEachIndexed { idx, p ->
+                        val x = boxCenterX + ((p.longitude - centerLon) * scaleFactor).toFloat()
+                        val y = boxCenterY - ((p.latitude - centerLat) * scaleFactor).toFloat()
+                        if (idx == 0) path.moveTo(x, y) else path.lineTo(x, y)
+                    }
+                    val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.parseColor("#FF6D00"); style = Paint.Style.STROKE; strokeWidth = 8f; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND }
+                    canvas.drawPath(path, linePaint)
+                }
             }
-            val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.parseColor("#FF6D00"); style = Paint.Style.STROKE; strokeWidth = 8f; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND }
-            canvas.drawPath(path, linePaint)
         }
 
         val leftAlign = -460f
@@ -892,56 +908,56 @@ private fun drawTripStickerOnCanvas(canvas: Canvas, trip: TripDetailData, sticke
         canvas.drawText("MOTRAVA", 460f, -860f, brandRightPaint)
         
         // Stats at bottom-left
-        canvas.drawText((trip.vehicleName ?: "Outdoor activity").uppercase(), leftAlign, 560f, titleLeftPaint)
+        canvas.drawText(posterData.subtitle.uppercase(), leftAlign, 560f, titleLeftPaint)
         
-        canvas.drawText("Time", leftAlign, 660f, labelLeftPaint)
-        canvas.drawText(durStr, leftAlign, 720f, valueLeftPaint)
+        canvas.drawText(posterData.stat3Label, leftAlign, 660f, labelLeftPaint)
+        canvas.drawText(posterData.stat3Value, leftAlign, 720f, valueLeftPaint)
         
-        canvas.drawText("Avg Speed", -100f, 660f, labelLeftPaint)
-        canvas.drawText(speedStr, -100f, 720f, valueLeftPaint)
+        canvas.drawText(posterData.stat2Label, -100f, 660f, labelLeftPaint)
+        canvas.drawText(posterData.stat2Value, -100f, 720f, valueLeftPaint)
         
-        canvas.drawText("Distance", leftAlign, 820f, labelLeftPaint)
-        canvas.drawText(distStr, leftAlign, 880f, valueLeftPaint)
+        canvas.drawText(posterData.stat1Label, leftAlign, 820f, labelLeftPaint)
+        canvas.drawText(posterData.stat1Value, leftAlign, 880f, valueLeftPaint)
     } else {
         if (stickerFormat != 3) {
             val headerY = if (stickerFormat == 2) -140f else -330f
             val titleY = if (stickerFormat == 2) -65f else -255f
-            canvas.drawText("MOTRAVA ACTIVITY", 0f, headerY, motravaHeaderPaint)
-            canvas.drawText((trip.vehicleName ?: "MY RIDE").uppercase(), 0f, titleY, titlePaint)
+            canvas.drawText(posterData.title, 0f, headerY, motravaHeaderPaint)
+            canvas.drawText(posterData.subtitle.uppercase(), 0f, titleY, titlePaint)
 
             if (stickerFormat == 1) {
                 // 2 Baris / Piramida
-                canvas.drawText("Distance", -260f, -140f, labelPaint)
-                canvas.drawText(distStr, -260f, -75f, valuePaint)
-                canvas.drawText("Avg Speed", 260f, -140f, labelPaint)
-                canvas.drawText(speedStr, 260f, -75f, valuePaint)
-                canvas.drawText("Duration", 0f, -10f, labelPaint)
-                canvas.drawText(durStr, 0f, 55f, valuePaint)
+                canvas.drawText(posterData.stat1Label, -260f, -140f, labelPaint)
+                canvas.drawText(posterData.stat1Value, -260f, -75f, valuePaint)
+                canvas.drawText(posterData.stat2Label, 260f, -140f, labelPaint)
+                canvas.drawText(posterData.stat2Value, 260f, -75f, valuePaint)
+                canvas.drawText(posterData.stat3Label, 0f, -10f, labelPaint)
+                canvas.drawText(posterData.stat3Value, 0f, 55f, valuePaint)
             } else {
                 // 3 Kolom / Sejajar (Format 0 & 2)
                 val statLabelY = if (stickerFormat == 2) 50f else -140f
                 val statValueY = if (stickerFormat == 2) 115f else -75f
-                canvas.drawText("Distance", -350f, statLabelY, labelPaint)
-                canvas.drawText(distStr, -350f, statValueY, valuePaint)
-                canvas.drawText("Duration", 0f, statLabelY, labelPaint)
-                canvas.drawText(durStr, 0f, statValueY, valuePaint)
-                canvas.drawText("Avg Speed", 350f, statLabelY, labelPaint)
-                canvas.drawText(speedStr, 350f, statValueY, valuePaint)
+                canvas.drawText(posterData.stat1Label, -350f, statLabelY, labelPaint)
+                canvas.drawText(posterData.stat1Value, -350f, statValueY, valuePaint)
+                canvas.drawText(posterData.stat3Label, 0f, statLabelY, labelPaint)
+                canvas.drawText(posterData.stat3Value, 0f, statValueY, valuePaint)
+                canvas.drawText(posterData.stat2Label, 350f, statLabelY, labelPaint)
+                canvas.drawText(posterData.stat2Value, 350f, statValueY, valuePaint)
             }
         }
 
         if (stickerFormat != 2) {
-            val route = trip.route ?: emptyList()
-            if (showManualRoute && route.size >= 2) {
-                var minLat = Double.MAX_VALUE
-                var maxLat = -Double.MAX_VALUE
-                var minLon = Double.MAX_VALUE
-                var maxLon = -Double.MAX_VALUE
-                for (p in route) {
-                    if (p.latitude < minLat) minLat = p.latitude
-                    if (p.latitude > maxLat) maxLat = p.latitude
-                    if (p.longitude < minLon) minLon = p.longitude
-                    if (p.longitude > maxLon) maxLon = p.longitude
+            val allRoutes = posterData.multiRoutes ?: (posterData.route?.let { listOf(it) } ?: emptyList())
+            if (showManualRoute && allRoutes.isNotEmpty()) {
+                var minLat = Double.MAX_VALUE; var maxLat = -Double.MAX_VALUE
+                var minLon = Double.MAX_VALUE; var maxLon = -Double.MAX_VALUE
+                for (r in allRoutes) {
+                    for (p in r) {
+                        if (p.latitude < minLat) minLat = p.latitude
+                        if (p.latitude > maxLat) maxLat = p.latitude
+                        if (p.longitude < minLon) minLon = p.longitude
+                        if (p.longitude > maxLon) maxLon = p.longitude
+                    }
                 }
 
                 val boxLeft = -380f
@@ -970,13 +986,6 @@ private fun drawTripStickerOnCanvas(canvas: Canvas, trip: TripDetailData, sticke
                 val boxCenterX = (boxLeft + boxRight) / 2f
                 val boxCenterY = (boxTop + boxBottom) / 2f
 
-                val path = Path()
-                route.forEachIndexed { idx, p ->
-                    val x = boxCenterX + ((p.longitude - centerLon) * scaleFactor).toFloat()
-                    val y = boxCenterY - ((p.latitude - centerLat) * scaleFactor).toFloat()
-                    if (idx == 0) path.moveTo(x, y) else path.lineTo(x, y)
-                }
-
                 // ponytail: clean solid vector line without blurry glow or shadow for maximum HD sharpness
                 val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                     color = android.graphics.Color.parseColor("#FF6D00")
@@ -985,14 +994,23 @@ private fun drawTripStickerOnCanvas(canvas: Canvas, trip: TripDetailData, sticke
                     strokeCap = Paint.Cap.ROUND
                     strokeJoin = Paint.Join.ROUND
                 }
-                canvas.drawPath(path, linePaint)
+                
+                for (r in allRoutes) {
+                    if (r.size >= 2) {
+                        val path = Path()
+                        r.forEachIndexed { idx, p ->
+                            val x = boxCenterX + ((p.longitude - centerLon) * scaleFactor).toFloat()
+                            val y = boxCenterY - ((p.latitude - centerLat) * scaleFactor).toFloat()
+                            if (idx == 0) path.moveTo(x, y) else path.lineTo(x, y)
+                        }
+                        canvas.drawPath(path, linePaint)
+                    }
+                }
             }
         }
 
         val footerY = if (stickerFormat == 2) 230f else 360f
         canvas.drawText("M O T R A V A", 0f, footerY, brandPaint)
     }
+
 }
-
-
-

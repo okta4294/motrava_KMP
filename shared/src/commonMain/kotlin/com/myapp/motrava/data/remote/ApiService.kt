@@ -155,10 +155,12 @@ class ApiService(
         }
     }
 
-    suspend fun getTripHistory(page: Int = 1, limit: Int = 10): Response<TripHistoryResponse> = safeRequest {
+    suspend fun getTripHistory(page: Int = 1, limit: Int = 10, startDate: String? = null, endDate: String? = null): Response<TripHistoryResponse> = safeRequest {
         client.get("api/trips") {
             parameter("page", page)
             parameter("limit", limit)
+            if (startDate != null) parameter("start_date", startDate)
+            if (endDate != null) parameter("end_date", endDate)
         }
     }
 

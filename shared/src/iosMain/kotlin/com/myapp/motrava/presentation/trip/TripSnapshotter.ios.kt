@@ -53,3 +53,44 @@ actual suspend fun getMapSnapshot(route: List<RoutePoint>, width: Int, height: I
         }
     }
 }
+
+@OptIn(ExperimentalForeignApi::class)
+actual suspend fun getMultiMapSnapshot(routes: List<List<RoutePoint>>, width: Int, height: Int): ImageBitmap? = suspendCancellableCoroutine { cont ->
+    if (routes.isEmpty() || routes.all { it.isEmpty() }) {
+        cont.resume(null)
+        return@suspendCancellableCoroutine
+    }
+
+    val first = routes.first { it.isNotEmpty() }.first()
+    val camera = MGLMapCamera.cameraLookingAtCenterCoordinate(
+        platform.CoreLocation.CLLocationCoordinate2DMake(first.latitude, first.longitude),
+        fromDistance = 15000.0,
+        pitch = 0.0,
+        heading = 0.0
+    )
+    
+    val options = MGLMapSnapshotOptions(
+        styleURL = NSURL.URLWithString("https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json"),
+        camera = camera,
+        size = CGSizeMake(width.toDouble(), height.toDouble())
+    )
+    
+    val snapshotter = MGLMapSnapshotter(options)
+    snapshotter.startWithCompletionHandler { snapshot, error ->
+        if (error != null || snapshot == null) {
+            cont.resume(null)
+        } else {
+            val uiImage = snapshot.image
+            val data = UIImagePNGRepresentation(uiImage)
+            val bytes = data?.let { nsData ->
+                ByteArray(nsData.length.toInt()).apply {
+                    usePinned { pinned ->
+                        memcpy(pinned.addressOf(0), nsData.bytes, nsData.length)
+                    }
+                }
+            }
+            val imageBitmap = bytes?.let { Image.makeFromEncoded(it).toComposeImageBitmap() }
+            cont.resume(imageBitmap)
+        }
+    }
+}

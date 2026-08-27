@@ -52,6 +52,8 @@ import com.myapp.motrava.presentation.service.AddServiceScreen
 import com.myapp.motrava.presentation.tracking.TrackingScreen
 import com.myapp.motrava.presentation.trip.TripDetailScreen
 import com.myapp.motrava.presentation.vehicle.AddVehicleScreen
+import com.myapp.motrava.presentation.recap.RecapScreen
+import com.myapp.motrava.presentation.recap.RecapStoryScreen
 import com.myapp.motrava.presentation.theme.*
 
 sealed class Screen(val route: String, val title: String, val icon: ImageVector? = null) {
@@ -70,6 +72,10 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
     object AddService : Screen("add_service", "Add Service")
     object TripDetail : Screen("trip_detail/{tripId}", "Trip Detail") {
         fun createRoute(tripId: String) = "trip_detail/$tripId"
+    }
+    object Recap : Screen("recap", "Trip Recap")
+    object RecapStory : Screen("recap_story/{periodName}/{startDate}/{endDate}", "Trip Story") {
+        fun createRoute(periodName: String, startDate: String, endDate: String) = "recap_story/$periodName/$startDate/$endDate"
     }
 }
 
@@ -243,7 +249,8 @@ fun MotravaApp(isDarkMode: Boolean, onThemeToggle: () -> Unit) {
             }
             composable(Screen.Dashboard.route) { 
                 DashboardScreen(
-                    onNavigateToTripDetail = { tripId -> navController.navigate(Screen.TripDetail.createRoute(tripId)) }
+                    onNavigateToTripDetail = { tripId -> navController.navigate(Screen.TripDetail.createRoute(tripId)) },
+                    onNavigateToRecap = { navController.navigate(Screen.Recap.route) }
                 ) 
             }
             composable(Screen.Tracking.route) { 
@@ -287,6 +294,43 @@ fun MotravaApp(isDarkMode: Boolean, onThemeToggle: () -> Unit) {
                 TripDetailScreen(
                     tripId = tripId,
                     onNavigateBack = { navController.popBackStack() }
+                )
+            }
+            composable(Screen.Recap.route) {
+                val recapViewModel: com.myapp.motrava.presentation.recap.RecapViewModel = org.koin.compose.viewmodel.koinViewModel()
+                val selectedVehicleId by recapViewModel.selectedVehicleId.collectAsState()
+                
+                RecapScreen(
+                    viewModel = recapViewModel,
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToStory = { periodName, startDate, endDate ->
+                        val vehicleParam = selectedVehicleId ?: "all"
+                        navController.navigate("recap_story/$periodName/$startDate/$endDate/$vehicleParam")
+                    }
+                )
+            }
+            composable(
+                route = "recap_story/{periodName}/{startDate}/{endDate}/{vehicleId}",
+                arguments = listOf(
+                    androidx.navigation.navArgument("periodName") { type = androidx.navigation.NavType.StringType },
+                    androidx.navigation.navArgument("startDate") { type = androidx.navigation.NavType.StringType },
+                    androidx.navigation.navArgument("endDate") { type = androidx.navigation.NavType.StringType },
+                    androidx.navigation.navArgument("vehicleId") { type = androidx.navigation.NavType.StringType }
+                )
+            ) { backStackEntry ->
+                val periodName = backStackEntry.arguments?.getString("periodName") ?: ""
+                val startDate = backStackEntry.arguments?.getString("startDate") ?: ""
+                val endDate = backStackEntry.arguments?.getString("endDate") ?: ""
+                val vehicleId = backStackEntry.arguments?.getString("vehicleId").takeIf { it != "all" }
+                
+                val viewModel: com.myapp.motrava.presentation.recap.RecapViewModel = org.koin.compose.viewmodel.koinViewModel()
+                RecapStoryScreen(
+                    periodName = periodName,
+                    startDate = startDate,
+                    endDate = endDate,
+                    vehicleId = vehicleId,
+                    viewModel = viewModel,
+                    onClose = { navController.popBackStack() }
                 )
             }
         }

@@ -11,11 +11,11 @@ actual fun sendServiceReminderNotification(
     center.requestAuthorizationWithOptions(UNAuthorizationOptionAlert or UNAuthorizationOptionSound) { granted, _ ->
         if (granted) {
             val content = UNMutableNotificationContent()
-            content.setTitle("Motrava Service Reminder")
+            content.setTitle(if (isOverdue) "Service Overdue!" else "Service Reminder")
             content.setBody(if (isOverdue) {
-                "Peringatan: $serviceName sudah lewat batas servis!"
+                "Your vehicle is overdue for $serviceName!"
             } else {
-                "Info: $serviceName sudah mencapai $progressPercent% dari batas servis."
+                "Your vehicle is approaching $serviceName ($progressPercent%)."
             })
             content.setSound(UNNotificationSound.defaultSound)
             

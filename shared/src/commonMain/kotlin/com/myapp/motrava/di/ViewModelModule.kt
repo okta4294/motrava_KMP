@@ -8,10 +8,12 @@ import com.myapp.motrava.presentation.service.ServiceReminderViewModel
 import com.myapp.motrava.presentation.trip.TripDetailViewModel
 import com.myapp.motrava.presentation.trip.TripViewModel
 import com.myapp.motrava.presentation.vehicle.VehicleViewModel
+import com.myapp.motrava.presentation.recap.RecapViewModel
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
 
 val viewModelModule = module {
+    viewModelOf(::RecapViewModel)
     viewModelOf(::AuthViewModel)
     viewModelOf(::DashboardViewModel)
     viewModelOf(::NotificationViewModel)
