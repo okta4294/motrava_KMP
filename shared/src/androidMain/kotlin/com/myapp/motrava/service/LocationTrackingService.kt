@@ -146,22 +146,47 @@ class LocationTrackingService : Service() {
                 tripId = null
                 prefs.edit().remove("active_trip_id").apply()
 
-                serviceScope.launch {
+                serviceScope.launch(kotlinx.coroutines.NonCancellable) {
                     if (currentTrip != null) {
-                        // Add a small delay to allow the DB to flush
+                        // Flush all pending location points BEFORE ending the trip
+                        // so the server has complete data to calculate distance
+                        try {
+                            val pending = locationPointDao.getUnsyncedByTrip(currentTrip, 500)
+                            if (pending.isNotEmpty()) {
+                                println("LocationService: [DIAG] Flushing ${pending.size} pending points before endTrip")
+                                val messages = pending.map { pt ->
+                                    WsLocationMessage(
+                                        tripId = currentTrip,
+                                        latitude = pt.latitude, longitude = pt.longitude,
+                                        speed = pt.speed, heading = pt.heading,
+                                        accuracy = pt.accuracy, altitude = pt.altitude,
+                                        battery = pt.battery, timestamp = pt.timestamp
+                                    )
+                                }
+                                val syncResp = apiService.batchUploadLocations(currentTrip, messages)
+                                if (syncResp.isSuccessful) {
+                                    locationPointDao.markAsSynced(pending.map { it.id })
+                                    println("LocationService: [DIAG] Final batch sync successful (${pending.size} points)")
+                                } else {
+                                    println("LocationService: [DIAG] Final batch sync failed: ${syncResp.code()}")
+                                }
+                            }
+                        } catch (e: Exception) {
+                            Log.e("LocationService", "Final batch sync failed", e)
+                        }
+
+                        // Now end the trip — server has all points to calculate distance
                         try {
                             apiService.endTrip(currentTrip, tripSessionManager.distanceMeters.value.toDouble())
                             println("LocationService: [DIAG] REST endTrip called successfully")
                         } catch (e: Exception) {
-                            android.util.Log.e("LocationService", "REST endTrip failed, flagging for later sync", e)
+                            Log.e("LocationService", "REST endTrip failed, flagging for later sync", e)
                             prefs.edit().putString("pending_end_trip", currentTrip).apply()
                         }
                     }
-                    withContext(kotlinx.coroutines.NonCancellable) {
-                        tripSessionManager.setTripInactive()
-                        stopForeground(STOP_FOREGROUND_REMOVE)
-                        stopSelf()
-                    }
+                    tripSessionManager.setTripInactive()
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                    stopSelf()
                 }
             }
         }
@@ -335,6 +360,16 @@ class LocationTrackingService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         stopLocationUpdates()
+        // Don't cancel immediately — give the stop coroutine time to flush & endTrip
+        // serviceScope uses NonCancellable for the stop flow, so cancel is safe
+        // but we add a small delay to let any in-flight work finish
+        try {
+            kotlinx.coroutines.runBlocking {
+                withTimeout(10_000) {
+                    serviceScope.coroutineContext[kotlinx.coroutines.Job]?.children?.forEach { it.join() }
+                }
+            }
+        } catch (_: Exception) {}
         serviceScope.cancel()
     }
 

@@ -1,4 +1,4 @@
-﻿package com.myapp.motrava.presentation.dashboard
+package com.myapp.motrava.presentation.dashboard
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -51,6 +51,7 @@ import org.koin.compose.viewmodel.koinViewModel
 @Composable
 fun DashboardScreen(
     onNavigateToTripDetail: (String) -> Unit,
+    onNavigateToRecap: () -> Unit = {},
     viewModel: DashboardViewModel = koinViewModel()
 ) {
     val dashboardState by viewModel.dashboardState.collectAsState()
@@ -114,6 +115,7 @@ fun DashboardScreen(
                             currentPage = currentPage,
                             onPageChange = { viewModel.onPageChanged(it) },
                             onNavigateToTripDetail = onNavigateToTripDetail,
+                            onNavigateToRecap = onNavigateToRecap,
                             onServiceDone = { vehicleId, reminderId ->
                                 viewModel.resetReminder(vehicleId, reminderId)
                             }
@@ -149,6 +151,7 @@ fun DashboardContent(
     currentPage: Int,
     onPageChange: (Int) -> Unit,
     onNavigateToTripDetail: (String) -> Unit,
+    onNavigateToRecap: () -> Unit,
     onServiceDone: (vehicleId: String, reminderId: String) -> Unit
 ) {
     val totalPages = state.totalPages
@@ -160,19 +163,38 @@ fun DashboardContent(
     ) {
         // Welcome Section
         item {
-            Text(
-                text = "Welcome Back!",
-                style = MaterialTheme.typography.headlineLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = state.userName,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.SemiBold,
-                color = AccentPeach
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = "Welcome Back!",
+                        style = MaterialTheme.typography.headlineLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = state.userName,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = AccentPeach
+                    )
+                }
+                
+                IconButton(
+                    onClick = onNavigateToRecap,
+                    modifier = Modifier.background(MaterialTheme.colorScheme.primaryContainer, CircleShape)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Map,
+                        contentDescription = "Monthly Recap",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
         }
 
         // Main Trip Summary Card with Gradient
@@ -535,14 +557,14 @@ fun VibrantStatCard(
 fun ActivityItem(trip: TripHistoryData, vehicleMap: Map<String, VehicleData>, onClick: () -> Unit) {
     val distanceText = if (trip.totalDistance != null) {
         "%.1f km".format(trip.totalDistance / 1000.0)
-    } else "â€”"
+    } else "—"
     
     val durationText = if (trip.duration != null) {
         val h = trip.duration / 3600
         val m = (trip.duration % 3600) / 60
         val s = trip.duration % 60
         if (h > 0) "${h}h ${m}m ${s}s" else if (m > 0) "${m}m ${s}s" else "${s}s"
-    } else "â€”"
+    } else "—"
     
     val vehicle = trip.vehicleId?.let { vehicleMap[it] }
         ?: vehicleMap.values.find { it.vehicleName.equals(trip.vehicleName, ignoreCase = true) }
@@ -790,7 +812,7 @@ fun ServiceProgressCard(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Sudah Servis?",
+                        text = "Service Done?",
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Bold
                     )
@@ -846,13 +868,13 @@ fun ServiceReminderBanner(
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = if (isOverdue) "ðŸš¨ Servis Terlambat!" else "âš ï¸ Servis Hampir Jatuh Tempo!",
+                        text = if (isOverdue) "🚨 Service Overdue!" else "⚠️ Service Due Soon!",
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Bold,
                         color = contentColor
                     )
                     Text(
-                        text = "${reminder.serviceName} â€” ${reminder.progressPercent.toInt()}% dari ${reminder.intervalKm} km",
+                        text = "${reminder.serviceName} • ${reminder.progressPercent.toInt()}% of ${reminder.intervalKm} km",
                         style = MaterialTheme.typography.bodySmall,
                         color = contentColor.copy(alpha = 0.85f)
                     )
