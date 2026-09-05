@@ -25,9 +25,28 @@ import java.io.File
 import java.nio.ByteBuffer
 import kotlin.math.max
 import kotlin.math.min
+import android.os.Handler
+import android.os.Looper
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.coroutines.resume
+import org.maplibre.android.geometry.LatLng
+import org.maplibre.android.geometry.LatLngBounds
+import org.maplibre.android.maps.Style
+import org.maplibre.android.snapshotter.MapSnapshot
+import org.maplibre.android.snapshotter.MapSnapshotter
+import org.maplibre.android.style.layers.LineLayer
+import org.maplibre.android.style.layers.Property
+import org.maplibre.android.style.layers.PropertyFactory
+import org.maplibre.android.style.sources.GeoJsonSource
+import org.maplibre.geojson.Feature
+import org.maplibre.geojson.FeatureCollection
+import org.maplibre.geojson.LineString
+import org.maplibre.geojson.Point
 
 actual suspend fun exportRecapVideo(
     recap: TripRecap,
+    isDarkTheme: Boolean,
     onProgress: (Float) -> Unit
 ): String? = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
     try {
@@ -43,16 +62,20 @@ actual suspend fun exportRecapVideo(
 
         onProgress(0.01f)
 
-        // === Generate all frames ===
+        // === Capture map snapshot (single shot, reused for all frames) ===
         val allRoutes = recap.routes.filter { it.isNotEmpty() }
+        val snapshotResult = captureMapSnapshot(context, allRoutes, w, h, isDarkTheme)
+        onProgress(0.05f)
+
+        // === Generate all frames ===
         val frames = generateFrames(
             recap = recap,
             allRoutes = allRoutes,
+            snapshotResult = snapshotResult,
             w = w, h = h,
-            titleFrames = titleFrames,
-            routeFrames = routeFrames,
-            statsFrames = statsFrames,
-            onProgress = { p -> onProgress(p * 0.7f) }  // 0–70% = render
+            isDarkTheme = isDarkTheme,
+            totalFrames = 450, // 15 detik @ 30fps
+            onProgress = { p -> onProgress(0.05f + p * 0.65f) }  // 5–70% = render
         )
 
         // === Output path ===
@@ -102,203 +125,400 @@ actual suspend fun exportRecapVideo(
 
         onProgress(1f)
         outputFile.absolutePath
-    } catch (e: Exception) {
-        e.printStackTrace()
+    } catch (t: Throwable) {
+        t.printStackTrace()
         null
     }
 }
 
-// ─── Frame Generator ─────────────────────────────────────────────────────────
+// Holds both the rendered bitmap and the exact geographic bounds used by MapSnapshotter
+private data class SnapshotResult(
+    val bitmap: Bitmap,
+    val minLat: Double, val maxLat: Double,
+    val minLon: Double, val maxLon: Double
+)
+
+private suspend fun captureMapSnapshot(
+    context: Context,
+    allRoutes: List<List<RoutePoint>>,
+    w: Int, h: Int,
+    isDarkTheme: Boolean
+): SnapshotResult? {
+    if (allRoutes.isEmpty() || allRoutes.all { it.isEmpty() }) return null
+    return withTimeoutOrNull(15_000L) {
+        suspendCancellableCoroutine { cont ->
+            try {
+                val boundsBuilder = LatLngBounds.Builder()
+                allRoutes.forEach { route ->
+                    if (route.isNotEmpty()) {
+                        route.forEach { boundsBuilder.include(LatLng(it.latitude, it.longitude)) }
+                    }
+                }
+                val rawBounds = boundsBuilder.build()
+                val latSpan = kotlin.math.abs(rawBounds.latitudeNorth - rawBounds.latitudeSouth)
+                val lonSpan = kotlin.math.abs(rawBounds.longitudeEast - rawBounds.longitudeWest)
+
+                // 35% vertical, 25% horizontal padding to prevent edge clipping (matches TripSnapshotter)
+                val padLat = if (latSpan == 0.0) 0.015 else kotlin.math.max(latSpan * 0.35, 0.005)
+                val padLon = if (lonSpan == 0.0) 0.015 else kotlin.math.max(lonSpan * 0.25, 0.005)
+                val centerShiftNorth = padLat * 0.15
+
+                val snMinLat = (rawBounds.latitudeSouth - padLat + centerShiftNorth).coerceIn(-89.9, 89.9)
+                val snMaxLat = (rawBounds.latitudeNorth + padLat + centerShiftNorth).coerceIn(-89.9, 89.9)
+                val snMinLon = rawBounds.longitudeWest - padLon
+                val snMaxLon = rawBounds.longitudeEast + padLon
+
+                val paddedBounds = LatLngBounds.from(snMaxLat, snMaxLon, snMinLat, snMinLon)
+
+                val styleUrl = if (isDarkTheme) {
+                    "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"
+                } else {
+                    "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json"
+                }
+
+                val styleBuilder = Style.Builder().fromUri(styleUrl)
+
+                val options = MapSnapshotter.Options(w, h)
+                    .withRegion(paddedBounds)
+                    .withStyleBuilder(styleBuilder)
+                    .withPixelRatio(1f)
+                    .withLogo(false)
+
+                Handler(Looper.getMainLooper()).post {
+                    try {
+                        org.maplibre.android.MapLibre.getInstance(context)
+                        val snapshotter = object : MapSnapshotter(context, options) {
+                            override fun addOverlay(mapSnapshot: MapSnapshot) {
+                                // No-op to bypass MapLibre createScaledLogo NPE bug
+                            }
+                        }
+                        snapshotter.start(object : MapSnapshotter.SnapshotReadyCallback {
+                            override fun onSnapshotReady(snapshot: MapSnapshot) {
+                                if (cont.isActive) {
+                                    val copied = snapshot.bitmap.copy(android.graphics.Bitmap.Config.ARGB_8888, false)
+                                    // Extract EXACT geographic bounds from the rendered image
+                                    val topLeft = snapshot.latLngForPixel(android.graphics.PointF(0f, 0f))
+                                    val bottomRight = snapshot.latLngForPixel(android.graphics.PointF(w.toFloat(), h.toFloat()))
+                                    
+                                    val actualMinLat = bottomRight.latitude
+                                    val actualMaxLat = topLeft.latitude
+                                    val actualMinLon = topLeft.longitude
+                                    val actualMaxLon = bottomRight.longitude
+                                    
+                                    cont.resume(SnapshotResult(copied, actualMinLat, actualMaxLat, actualMinLon, actualMaxLon))
+                                }
+                            }
+                        }, object : MapSnapshotter.ErrorHandler {
+                            override fun onError(error: String) {
+                                if (cont.isActive) cont.resume(null)
+                            }
+                        })
+                        cont.invokeOnCancellation { snapshotter.cancel() }
+                    } catch (t: Throwable) {
+                        t.printStackTrace()
+                        if (cont.isActive) cont.resume(null)
+                    }
+                }
+            } catch (e: Exception) {
+                if (cont.isActive) cont.resume(null)
+            }
+        }
+    }
+}
+
 
 private fun generateFrames(
     recap: TripRecap,
     allRoutes: List<List<RoutePoint>>,
+    snapshotResult: SnapshotResult?,
     w: Int, h: Int,
-    titleFrames: Int,
-    routeFrames: Int,
-    statsFrames: Int,
+    isDarkTheme: Boolean,
+    totalFrames: Int = 450, // 15 detik @ 30fps
     onProgress: (Float) -> Unit
 ): List<Bitmap> {
     val frames = mutableListOf<Bitmap>()
-    val total = (titleFrames + routeFrames + statsFrames).toFloat()
-    var rendered = 0
 
-    // Precompute map bounds for projection
-    val bounds = computeBounds(allRoutes)
-
-    // ── Phase 1: Title fade-in ──
-    for (i in 0 until titleFrames) {
-        val alpha = (i + 1) / titleFrames.toFloat()
-        val bmp = createFrame(w, h)
-        val canvas = Canvas(bmp)
-        drawBackground(canvas, w, h)
-        drawTitle(canvas, recap.periodName, alpha, w, h)
-        frames.add(bmp)
-        rendered++
-        onProgress(rendered / total)
+    // Scale map snapshot to fit the frame
+    val scaledMap = snapshotResult?.bitmap?.let {
+        Bitmap.createScaledBitmap(it, w, h, true)
     }
 
-    // ── Phase 2: Animated route drawing ──
-    // Flatten all points with route index for smooth animation
+    // ── Projection bounds: must match snapshot exactly so routes align with tiles ──
+    val projMinLat: Double
+    val projMaxLat: Double
+    val projMinLon: Double
+    val projMaxLon: Double
+    if (snapshotResult != null) {
+        projMinLat = snapshotResult.minLat
+        projMaxLat = snapshotResult.maxLat
+        projMinLon = snapshotResult.minLon
+        projMaxLon = snapshotResult.maxLon
+    } else {
+        // Inline fallback bounds computation (computeBounds removed, inline instead)
+        var minLat = Double.MAX_VALUE; var maxLat = -Double.MAX_VALUE
+        var minLon = Double.MAX_VALUE; var maxLon = -Double.MAX_VALUE
+        for (r in allRoutes) for (p in r) {
+            if (p.latitude < minLat) minLat = p.latitude
+            if (p.latitude > maxLat) maxLat = p.latitude
+            if (p.longitude < minLon) minLon = p.longitude
+            if (p.longitude > maxLon) maxLon = p.longitude
+        }
+        val latSpan = maxLat - minLat
+        val lonSpan = maxLon - minLon
+        val padLat = if (latSpan == 0.0) 0.03 else kotlin.math.max(latSpan * 0.70, 0.01)
+        val padLon = if (lonSpan == 0.0) 0.03 else kotlin.math.max(lonSpan * 0.70, 0.01)
+        projMinLat = minLat - padLat
+        projMaxLat = maxLat + padLat
+        projMinLon = minLon - padLon
+        projMaxLon = maxLon + padLon
+    }
+
+    // ── Web Mercator helpers (shared by camera + route drawing) ──
+    fun mercatorY(latDeg: Double): Double {
+        val latRad = Math.toRadians(latDeg.coerceIn(-85.05, 85.05))
+        return Math.log(Math.tan(Math.PI / 4.0 + latRad / 2.0))
+    }
+    val mTop    = mercatorY(projMaxLat)
+    val mBottom = mercatorY(projMinLat)
+    val mSpan   = mTop - mBottom
+    val lonSpan = projMaxLon - projMinLon
+    fun lngToX(lon: Double): Float = ((lon - projMinLon) / lonSpan * w).toFloat()
+    fun latToY(lat: Double): Float  = ((mTop - mercatorY(lat)) / mSpan * h).toFloat()
+
+    // ── Animation state ──
     data class AnimPoint(val routeIdx: Int, val pointIdx: Int)
     val allPoints = mutableListOf<AnimPoint>()
     allRoutes.forEachIndexed { ri, route ->
         route.indices.forEach { pi -> allPoints.add(AnimPoint(ri, pi)) }
     }
-
-    // Sub-sample: if too many points, pick evenly distributed subset
-    val step = max(1, allPoints.size / routeFrames)
     val drawnCounts = IntArray(allRoutes.size) { 0 }
 
-    for (frameIdx in 0 until routeFrames) {
-        // Advance drawn points
-        val targetIdx = min(allPoints.size - 1, frameIdx * step)
-        for (i in (frameIdx - 1).coerceAtLeast(0) * step until targetIdx + 1) {
-            val ap = allPoints.getOrNull(i) ?: break
-            if (drawnCounts[ap.routeIdx] <= ap.pointIdx) {
-                drawnCounts[ap.routeIdx] = ap.pointIdx + 1
+    // ── Camera state (starts on the first point, zoomed in) ──
+    val firstPt   = allRoutes.firstOrNull()?.firstOrNull()
+    var camCenterX = if (firstPt != null) lngToX(firstPt.longitude) else w / 2f
+    var camCenterY = if (firstPt != null) latToY(firstPt.latitude)  else h / 2f
+    var camZoom   = if (allRoutes.isNotEmpty()) 3.5f else 1f
+
+    for (frameIdx in 0 until totalFrames) {
+        val bmp    = createFrame(w, h)
+        val canvas = Canvas(bmp)
+
+        // 1. Update drawn route progress (12s / 360 frames)
+        val routeProgress = (frameIdx.toFloat() / 360f).coerceAtMost(1f)
+        if (allPoints.isNotEmpty()) {
+            val targetIdx = (routeProgress * (allPoints.size - 1)).toInt().coerceIn(0, allPoints.size - 1)
+            for (i in 0..targetIdx) {
+                val ap = allPoints[i]
+                if (drawnCounts[ap.routeIdx] <= ap.pointIdx) drawnCounts[ap.routeIdx] = ap.pointIdx + 1
             }
         }
 
-        val bmp = createFrame(w, h)
-        val canvas = Canvas(bmp)
-        drawBackground(canvas, w, h)
-        drawTitle(canvas, recap.periodName, 1f, w, h)
-        drawRoutes(canvas, allRoutes, drawnCounts, bounds, w, h, frameIdx.toFloat() / routeFrames)
-        frames.add(bmp)
-        rendered++
-        onProgress(rendered / total)
-    }
+        // 2. Compute target camera from bounding box of currently drawn pixels
+        //    — mirrors MapLibre easeCamera(newLatLngBounds(currentBounds, padding))
+        var minPx = Float.MAX_VALUE; var maxPx = -Float.MAX_VALUE
+        var minPy = Float.MAX_VALUE; var maxPy = -Float.MAX_VALUE
+        var hasDrawn = false
+        allRoutes.forEachIndexed { idx, route ->
+            val count = drawnCounts[idx].coerceAtMost(route.size)
+            for (pi in 0 until count) {
+                val p  = route[pi]
+                val px = lngToX(p.longitude)
+                val py = latToY(p.latitude)
+                if (px < minPx) minPx = px; if (px > maxPx) maxPx = px
+                if (py < minPy) minPy = py; if (py > maxPy) maxPy = py
+                hasDrawn = true
+            }
+        }
 
-    // Full routes for stats phase
-    val fullCounts = IntArray(allRoutes.size) { idx -> allRoutes[idx].size }
+        val targetCamCenterX: Float
+        val targetCamCenterY: Float
+        val targetCamZoom: Float
 
-    // ── Phase 3: Stats fade-in ──
-    for (i in 0 until statsFrames) {
-        val alpha = (i + 1) / statsFrames.toFloat()
-        val bmp = createFrame(w, h)
-        val canvas = Canvas(bmp)
-        drawBackground(canvas, w, h)
-        drawTitle(canvas, recap.periodName, 1f, w, h)
-        drawRoutes(canvas, allRoutes, fullCounts, bounds, w, h, 1f)
-        drawStats(canvas, recap, alpha, w, h)
+        if (!hasDrawn) {
+            // Initialise camera at route start, zoomed in tight
+            targetCamCenterX = camCenterX
+            targetCamCenterY = camCenterY
+            targetCamZoom    = camZoom
+        } else {
+            // Fit camera to drawn route bounds + 15% padding (like MapLibre)
+            targetCamCenterX = (minPx + maxPx) / 2f
+            targetCamCenterY = (minPy + maxPy) / 2f
+            val padX = w * 0.15f
+            val padY = h * 0.15f
+            val bboxW = (maxPx - minPx + padX * 2).coerceAtLeast(50f)
+            val bboxH = (maxPy - minPy + padY * 2).coerceAtLeast(50f)
+            targetCamZoom = min(w.toFloat() / bboxW, h.toFloat() / bboxH).coerceIn(0.9f, 5f)
+        }
+
+        // 3. Smooth camera lerp (factor 0.06 ≈ 300ms settle at 30fps, matching easeCamera)
+        val lerpFactor = 0.06f
+        camCenterX += (targetCamCenterX - camCenterX) * lerpFactor
+        camCenterY += (targetCamCenterY - camCenterY) * lerpFactor
+        camZoom    += (targetCamZoom    - camZoom)    * lerpFactor
+
+        // 4. Apply camera transform:
+        //    Translate so that camCenter lands at screen centre, then scale.
+        //    Transform: screen_xy = (map_xy - camCenter) * zoom + (w/2, h/2)
+        canvas.save()
+        canvas.translate(w / 2f, h / 2f)
+        canvas.scale(camZoom, camZoom)
+        canvas.translate(-camCenterX, -camCenterY)
+
+        // Draw map bitmap (in camera space)
+        if (scaledMap != null) canvas.drawBitmap(scaledMap, 0f, 0f, null)
+        else {
+            val bgPaint = Paint().apply { color = Color.parseColor(if (isDarkTheme) "#0A0A12" else "#F5F5F5") }
+            canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), bgPaint)
+        }
+
+        // Draw animated route (in camera space — same coordinate system)
+        drawRoutes(canvas, allRoutes, drawnCounts,
+            projMinLat, projMaxLat, projMinLon, projMaxLon, w, h)
+
+        canvas.restore() // back to screen space
+
+        // 5. Full-screen dark overlay (always covers entire screen, outside camera)
+        canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(),
+            Paint().apply { color = Color.parseColor("#80000000") })
+
+        // 6. Draw text overlays (screen-space, not affected by camera)
+        val step1Alpha = (frameIdx / 30f).coerceIn(0f, 1f)
+        val step1OffsetY = (1f - step1Alpha) * 40f
+        val step2Alpha = ((frameIdx - 30) / 30f).coerceIn(0f, 1f)
+        val step2OffsetY = (1f - step2Alpha) * 40f
+        val step3Alpha = ((frameIdx - 60) / 30f).coerceIn(0f, 1f)
+        val step3OffsetY = (1f - step3Alpha) * 40f
+
+        drawStoryOverlay(
+            canvas = canvas, recap = recap,
+            step1Alpha = step1Alpha, step1OffsetY = step1OffsetY,
+            step2Alpha = step2Alpha, step2OffsetY = step2OffsetY,
+            step3Alpha = step3Alpha, step3OffsetY = step3OffsetY,
+            w = w, h = h, isDarkTheme = isDarkTheme
+        )
+
         frames.add(bmp)
-        rendered++
-        onProgress(rendered / total)
+        onProgress((frameIdx + 1) / totalFrames.toFloat())
     }
 
     return frames
 }
+
 
 // ─── Canvas Drawing Primitives ────────────────────────────────────────────────
 
 private fun createFrame(w: Int, h: Int): Bitmap =
     Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
 
-private fun drawBackground(canvas: Canvas, w: Int, h: Int) {
-    val bgPaint = Paint().apply { color = Color.parseColor("#0A0A12") }
-    canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), bgPaint)
-    // Subtle radial glow at center
-    val gradPaint = Paint().apply {
-        shader = RadialGradient(
-            w / 2f, h / 2f, h * 0.55f,
-            intArrayOf(Color.parseColor("#1A1A3A"), Color.parseColor("#0A0A12")),
-            null, Shader.TileMode.CLAMP
-        )
+private fun drawBackground(canvas: Canvas, w: Int, h: Int, mapSnapshot: Bitmap?, isDarkTheme: Boolean) {
+    if (mapSnapshot != null) {
+        canvas.drawBitmap(mapSnapshot, 0f, 0f, null)
+    } else {
+        val bgPaint = Paint().apply { color = Color.parseColor(if (isDarkTheme) "#0A0A12" else "#F5F5F5") }
+        canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), bgPaint)
     }
-    canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), gradPaint)
 }
 
-private fun drawTitle(canvas: Canvas, periodName: String, alpha: Float, w: Int, h: Int) {
-    if (alpha <= 0f) return
-    val alphaByte = (alpha * 255).toInt().coerceIn(0, 255)
-    val brandPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#FF6D00"); this.alpha = alphaByte
-        textSize = 52f; typeface = Typeface.create(Typeface.DEFAULT_BOLD, Typeface.BOLD)
-        textAlign = Paint.Align.LEFT; letterSpacing = 0.15f
+private fun drawStoryOverlay(
+    canvas: Canvas,
+    recap: TripRecap,
+    step1Alpha: Float, step1OffsetY: Float,
+    step2Alpha: Float, step2OffsetY: Float,
+    step3Alpha: Float, step3OffsetY: Float,
+    w: Int, h: Int, isDarkTheme: Boolean
+) {
+    val startX = 90f
+
+    // Step 1: Period Title & "You were unstoppable."
+    if (step1Alpha > 0f) {
+        val a1 = (step1Alpha * 255).toInt().coerceIn(0, 255)
+        val titlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.WHITE; this.alpha = a1
+            textSize = 76f; typeface = Typeface.create(Typeface.DEFAULT_BOLD, Typeface.BOLD)
+            textAlign = Paint.Align.LEFT
+        }
+        val subPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.WHITE; this.alpha = (a1 * 0.9f).toInt()
+            textSize = 40f; typeface = Typeface.DEFAULT
+            textAlign = Paint.Align.LEFT
+        }
+        canvas.drawText(recap.periodName, startX, 680f + step1OffsetY, titlePaint)
+        canvas.drawText("You were unstoppable.", startX, 745f + step1OffsetY, subPaint)
     }
-    val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#E0E5F5"); this.alpha = alphaByte
-        textSize = 40f; typeface = Typeface.DEFAULT
-        textAlign = Paint.Align.LEFT
+
+    // Step 2: DISTANCE & value
+    if (step2Alpha > 0f) {
+        val a2 = (step2Alpha * 255).toInt().coerceIn(0, 255)
+        val distLabelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.parseColor("#FF6D00"); this.alpha = a2
+            textSize = 34f; typeface = Typeface.create(Typeface.DEFAULT_BOLD, Typeface.BOLD)
+            letterSpacing = 0.1f; textAlign = Paint.Align.LEFT
+        }
+        val distValPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.WHITE; this.alpha = a2
+            textSize = 96f; typeface = Typeface.create(Typeface.DEFAULT_BOLD, Typeface.BOLD)
+            textAlign = Paint.Align.LEFT
+        }
+        canvas.drawText("DISTANCE", startX, 900f + step2OffsetY, distLabelPaint)
+        canvas.drawText("${"%.1f".format(recap.totalDistance / 1000)} km", startX, 1010f + step2OffsetY, distValPaint)
     }
-    val periodPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.WHITE; this.alpha = alphaByte
-        textSize = 72f; typeface = Typeface.create(Typeface.DEFAULT_BOLD, Typeface.BOLD)
-        textAlign = Paint.Align.LEFT
+
+    // Step 3: TRIPS & MAX SPEED
+    if (step3Alpha > 0f) {
+        val a3 = (step3Alpha * 255).toInt().coerceIn(0, 255)
+        val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.parseColor(if (isDarkTheme) "#808080" else "#B3B3B3"); this.alpha = a3
+            textSize = 34f; typeface = Typeface.create(Typeface.DEFAULT_BOLD, Typeface.BOLD)
+            letterSpacing = 0.1f; textAlign = Paint.Align.LEFT
+        }
+        val valPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.WHITE; this.alpha = a3
+            textSize = 68f; typeface = Typeface.create(Typeface.DEFAULT_BOLD, Typeface.BOLD)
+            textAlign = Paint.Align.LEFT
+        }
+
+        // Column 1: TRIPS
+        canvas.drawText("TRIPS", startX, 1160f + step3OffsetY, labelPaint)
+        canvas.drawText("${recap.totalTrips}", startX, 1245f + step3OffsetY, valPaint)
+
+        // Column 2: MAX SPEED
+        val col2X = w * 0.52f
+        canvas.drawText("MAX SPEED", col2X, 1160f + step3OffsetY, labelPaint)
+        canvas.drawText("${"%.0f".format(recap.maxSpeed)} km/h", col2X, 1245f + step3OffsetY, valPaint)
     }
-    val tagPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#B0B8D0"); this.alpha = alphaByte
-        textSize = 38f; typeface = Typeface.DEFAULT
-        textAlign = Paint.Align.LEFT
-    }
-
-    val x = 80f
-    val top = h * 0.10f
-    canvas.drawText("MOTRAVA", x, top + 60f, brandPaint)
-    canvas.drawText(periodName, x, top + 145f, periodPaint)
-    canvas.drawText("Your journey in numbers.", x, top + 205f, tagPaint)
-}
-
-
-
-
-private data class MapBounds(
-    val minLat: Double, val maxLat: Double, val minLon: Double, val maxLon: Double
-)
-
-private fun computeBounds(allRoutes: List<List<RoutePoint>>): MapBounds {
-    var minLat = Double.MAX_VALUE; var maxLat = -Double.MAX_VALUE
-    var minLon = Double.MAX_VALUE; var maxLon = -Double.MAX_VALUE
-    for (r in allRoutes) for (p in r) {
-        if (p.latitude < minLat) minLat = p.latitude
-        if (p.latitude > maxLat) maxLat = p.latitude
-        if (p.longitude < minLon) minLon = p.longitude
-        if (p.longitude > maxLon) maxLon = p.longitude
-    }
-    return MapBounds(minLat, maxLat, minLon, maxLon)
 }
 
 private fun drawRoutes(
     canvas: Canvas,
     allRoutes: List<List<RoutePoint>>,
     drawnCounts: IntArray,
-    bounds: MapBounds,
-    w: Int, h: Int,
-    routeProgress: Float
+    minLat: Double, maxLat: Double,
+    minLon: Double, maxLon: Double,
+    w: Int, h: Int
 ) {
-    if (bounds.minLat == Double.MAX_VALUE) return
-    val pad = 0.12f
-    val boxL = bounds.minLon - pad; val boxR = bounds.maxLon + pad
-    val boxT = bounds.maxLat + pad; val boxB = bounds.minLat - pad
-    val latSpan = boxT - boxB; val lonSpan = boxR - boxL
-    val scale = if (latSpan == 0.0 || lonSpan == 0.0) 1f else min(
-        (w * 0.78f) / lonSpan, (h * 0.85f) / latSpan
-    ).toFloat()
-    val cLat = (bounds.minLat + bounds.maxLat) / 2.0
-    val cLon = (bounds.minLon + bounds.maxLon) / 2.0
-    fun lngToX(lon: Double) = (w / 2f) + ((lon - cLon) * scale).toFloat()
-    fun latToY(lat: Double) = (h / 2f) - ((lat - cLat) * scale).toFloat()
+    if (minLat == Double.MAX_VALUE) return
 
-    // Ghost: all routes dim
-    val ghostPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#30FF6D00"); style = Paint.Style.STROKE
-        strokeWidth = 3f; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND
-    }
-    for (r in allRoutes) {
-        if (r.size < 2) continue
-        val path = Path()
-        r.forEachIndexed { idx, p ->
-            val x = lngToX(p.longitude); val y = latToY(p.latitude)
-            if (idx == 0) path.moveTo(x, y) else path.lineTo(x, y)
-        }
-        canvas.drawPath(path, ghostPaint)
+    // ── Web Mercator projection (matches MapLibre / Carto tiles exactly) ──────
+    // MapLibre uses EPSG:3857 (Web Mercator). To overlay routes on the snapshot
+    // we must use the same projection, otherwise latitude lines shift non-linearly.
+    fun mercatorY(latDeg: Double): Double {
+        val latRad = Math.toRadians(latDeg.coerceIn(-85.05, 85.05))
+        return Math.log(Math.tan(Math.PI / 4.0 + latRad / 2.0))
     }
 
-    // Active: drawn portion
+    val mTop    = mercatorY(maxLat)
+    val mBottom = mercatorY(minLat)
+    val mSpan   = mTop - mBottom
+    val lonSpan = maxLon - minLon
+
+    // Map geographic coordinates to pixel space
+    fun lngToX(lon: Double): Float = ((lon - minLon) / lonSpan * w).toFloat()
+    fun latToY(lat: Double): Float  = ((mTop - mercatorY(lat)) / mSpan * h).toFloat()
+
+    // Active: draw animated portion of each route
     val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.parseColor("#FF6D00"); style = Paint.Style.STROKE
-        strokeWidth = 9f; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND
+        strokeWidth = 10f; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND
     }
     allRoutes.forEachIndexed { idx, r ->
         val count = drawnCounts.getOrNull(idx)?.coerceAtMost(r.size) ?: 0
@@ -310,50 +530,7 @@ private fun drawRoutes(
             if (pi == 0) path.moveTo(x, y) else path.lineTo(x, y)
         }
         canvas.drawPath(path, linePaint)
-        // Moving head dot
-        if (routeProgress < 1f) {
-            val last = r[count - 1]
-            val lx = lngToX(last.longitude); val ly = latToY(last.latitude)
-            canvas.drawCircle(lx, ly, 14f, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#FF6D00"); style = Paint.Style.FILL })
-            canvas.drawCircle(lx, ly, 9f, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE; style = Paint.Style.FILL })
-        }
     }
-}
-
-private fun drawStats(canvas: Canvas, recap: TripRecap, alpha: Float, w: Int, h: Int) {
-    val alphaByte = (alpha * 255).toInt().coerceIn(0, 255)
-    // Semi-transparent card
-    val cardPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#CC000000"); this.alpha = ((alphaByte * 0.85f).toInt())
-    }
-    val cardLeft = 60f; val cardTop = h * 0.80f
-    val cardRight = w - 60f; val cardBottom = h * 0.97f
-    canvas.drawRoundRect(RectF(cardLeft, cardTop, cardRight, cardBottom), 32f, 32f, cardPaint)
-
-    val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#B0B8D0"); this.alpha = alphaByte
-        textSize = 34f; textAlign = Paint.Align.CENTER; typeface = Typeface.DEFAULT
-    }
-    val valuePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.WHITE; this.alpha = alphaByte
-        textSize = 56f; textAlign = Paint.Align.CENTER; typeface = Typeface.create(Typeface.DEFAULT_BOLD, Typeface.BOLD)
-    }
-    val accentPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#FF6D00"); this.alpha = alphaByte
-        textSize = 56f; textAlign = Paint.Align.CENTER; typeface = Typeface.create(Typeface.DEFAULT_BOLD, Typeface.BOLD)
-    }
-
-    val cy1 = cardTop + (cardBottom - cardTop) * 0.32f
-    val cy2 = cardTop + (cardBottom - cardTop) * 0.82f
-
-    val col1 = w * 0.20f; val col2 = w * 0.50f; val col3 = w * 0.80f
-
-    canvas.drawText("TRIPS", col1, cy1, labelPaint)
-    canvas.drawText("${recap.totalTrips}", col1, cy2, valuePaint)
-    canvas.drawText("DISTANCE", col2, cy1, labelPaint)
-    canvas.drawText("${"%.1f".format(recap.totalDistance)} km", col2, cy2, accentPaint)
-    canvas.drawText("MAX SPEED", col3, cy1, labelPaint)
-    canvas.drawText("${"%.0f".format(recap.maxSpeed)} km/h", col3, cy2, valuePaint)
 }
 
 // ─── Video Encoder ────────────────────────────────────────────────────────────

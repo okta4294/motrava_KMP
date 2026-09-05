@@ -214,7 +214,7 @@ actual fun PosterEditorDialog(
                                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && bmp?.config == Bitmap.Config.HARDWARE) {
                                             bmp.copy(Bitmap.Config.ARGB_8888, true) ?: bmp
                                         } else bmp
-                                    } catch (e: Exception) { null }
+                                    } catch (t: Throwable) { null }
                                 }
                             } else null
                         }
@@ -267,8 +267,8 @@ actual fun PosterEditorDialog(
                             Box(
                                 modifier = Modifier.fillMaxSize().background(
                                     androidx.compose.ui.graphics.Brush.verticalGradient(
-                                        colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.75f)),
-                                        startY = 400f
+                                        colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.85f)),
+                                        startY = 700f
                                     )
                                 )
                             )
@@ -293,7 +293,7 @@ actual fun PosterEditorDialog(
                                 stickerStyle = stickerStyle,
                                 stickerFormat = stickerFormat,
                                 isLightMode = selectedImageUri == null && !isTransparentBg && stickerFormat == 4,
-                                showManualRoute = stickerFormat != 4 || liveMapSnapshot == null,
+                                showManualRoute = true,
                                 liveMapSnapshot = if (stickerFormat == 4) liveMapSnapshot?.asAndroidBitmap() else null,
                                 modifier = Modifier
                                     .offset { IntOffset(offsetX.roundToInt(), offsetY.roundToInt()) }
@@ -467,7 +467,7 @@ fun TripStickerPreview(
                 modifier = Modifier.fillMaxSize().background(
                     androidx.compose.ui.graphics.Brush.verticalGradient(
                         colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.85f)),
-                        startY = 400f
+                        startY = 700f
                     )
                 )
             )
@@ -483,42 +483,7 @@ fun TripStickerPreview(
                     .padding(top = 16.dp, end = 16.dp)
             )
             
-            if (showManualRoute) {
-                androidx.compose.foundation.Canvas(
-                    modifier = Modifier.fillMaxSize().padding(bottom = 60.dp, top = 10.dp)
-                ) {
-                    var minLat = Double.MAX_VALUE; var maxLat = -Double.MAX_VALUE
-                    var minLon = Double.MAX_VALUE; var maxLon = -Double.MAX_VALUE
-                    val allRoutes = posterData.multiRoutes ?: (posterData.route?.let { listOf(it) } ?: emptyList())
-                    
-                    if (allRoutes.isNotEmpty()) {
-                        for (r in allRoutes) {
-                            for (p in r) {
-                                if (p.latitude < minLat) minLat = p.latitude
-                                if (p.latitude > maxLat) maxLat = p.latitude
-                                if (p.longitude < minLon) minLon = p.longitude
-                                if (p.longitude > maxLon) maxLon = p.longitude
-                            }
-                        }
-                        val latSpan = maxLat - minLat; val lonSpan = maxLon - minLon
-                        val scaleFactor = if (latSpan == 0.0 || lonSpan == 0.0) 1f else kotlin.math.min(size.width / lonSpan, size.height / latSpan).toFloat() * 0.9f
-                        val centerLat = (minLat + maxLat) / 2.0; val centerLon = (minLon + maxLon) / 2.0
-                        val centerX = size.width / 2f; val centerY = size.height / 2f
-
-                        for (r in allRoutes) {
-                            if (r.size >= 2) {
-                                val path = androidx.compose.ui.graphics.Path()
-                                r.forEachIndexed { idx, p ->
-                                    val x = centerX + ((p.longitude - centerLon) * scaleFactor).toFloat()
-                                    val y = centerY - ((p.latitude - centerLat) * scaleFactor).toFloat()
-                                    if (idx == 0) path.moveTo(x, y) else path.lineTo(x, y)
-                                }
-                                drawPath(path = path, color = Color(0xFFFF6D00), style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round))
-                            }
-                        }
-                    }
-                }
-            }
+            // (Route is now drawn natively by MapLibre inside liveMapSnapshot, so we don't need manual Canvas drawing here)
 
             // Full Maps Bottom Stats Overlay
             Column(
@@ -715,8 +680,8 @@ private suspend fun exportEditedTripPoster(
                 } else {
                     canvas.drawColor(if (isLightMode) android.graphics.Color.parseColor("#F0F2F5") else android.graphics.Color.parseColor("#1A1C24"))
                 }
-            } catch (e: Exception) {
-                e.printStackTrace()
+            } catch (t: Throwable) {
+                t.printStackTrace()
                 canvas.drawColor(if (isLightMode) android.graphics.Color.parseColor("#F0F2F5") else android.graphics.Color.parseColor("#1A1C24"))
             }
         } else if (liveMapSnapshot != null && stickerFormat == 4 && imageUri == null && !isTransparentBg) {
@@ -734,7 +699,7 @@ private suspend fun exportEditedTripPoster(
             // Add dark gradient at the bottom so white text is readable on light maps
             val gradientPaint = Paint().apply {
                 shader = android.graphics.LinearGradient(
-                    0f, 1920f * 0.45f, 0f, 1920f,
+                    0f, 1920f * 0.65f, 0f, 1920f,
                     android.graphics.Color.TRANSPARENT,
                     android.graphics.Color.parseColor("#D9000000"), // 85% black
                     android.graphics.Shader.TileMode.CLAMP
@@ -746,7 +711,7 @@ private suspend fun exportEditedTripPoster(
             if (stickerFormat == 4 && !isTransparentBg) {
                 // Add gradient for fallback background as well
                 val gradientPaint = Paint().apply {
-                    shader = android.graphics.LinearGradient(0f, 1920f * 0.45f, 0f, 1920f, android.graphics.Color.TRANSPARENT, android.graphics.Color.parseColor("#D9000000"), android.graphics.Shader.TileMode.CLAMP)
+                    shader = android.graphics.LinearGradient(0f, 1920f * 0.65f, 0f, 1920f, android.graphics.Color.TRANSPARENT, android.graphics.Color.parseColor("#D9000000"), android.graphics.Shader.TileMode.CLAMP)
                 }
                 canvas.drawRect(0f, 0f, 1080f, 1920f, gradientPaint)
             }
@@ -763,7 +728,7 @@ private suspend fun exportEditedTripPoster(
         canvas.translate(centerX, centerY)
         canvas.scale(scale, scale)
         val isFullMapBackground = liveMapSnapshot != null && stickerFormat == 4 && imageUri == null && !isTransparentBg
-        drawTripStickerOnCanvas(canvas, posterData, stickerStyle, stickerFormat, isLightMode, !isFullMapBackground)
+        drawTripStickerOnCanvas(canvas, posterData, stickerStyle, stickerFormat, isLightMode, true)
         canvas.restore()
 
         // 3. Save to MediaStore
@@ -797,10 +762,10 @@ private suspend fun exportEditedTripPoster(
                 onComplete()
             }
         }
-    } catch (e: Exception) {
-        e.printStackTrace()
+    } catch (t: Throwable) {
+        t.printStackTrace()
         withContext(Dispatchers.Main) {
-            Toast.makeText(context, "An error occurred: ${e.message}", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "An error occurred: ${t.message}", Toast.LENGTH_SHORT).show()
             onComplete()
         }
     }
@@ -865,38 +830,9 @@ private fun drawTripStickerOnCanvas(canvas: Canvas, posterData: PosterData, stic
 
     if (stickerFormat == 4) {
         // Strava Style Export
-        val allRoutes = posterData.multiRoutes ?: (posterData.route?.let { listOf(it) } ?: emptyList())
-        if (showManualRoute && allRoutes.isNotEmpty()) {
-            var minLat = Double.MAX_VALUE; var maxLat = -Double.MAX_VALUE
-            var minLon = Double.MAX_VALUE; var maxLon = -Double.MAX_VALUE
-            for (r in allRoutes) {
-                for (p in r) {
-                    if (p.latitude < minLat) minLat = p.latitude
-                    if (p.latitude > maxLat) maxLat = p.latitude
-                    if (p.longitude < minLon) minLon = p.longitude
-                    if (p.longitude > maxLon) maxLon = p.longitude
-                }
-            }
-            val boxLeft = -460f; val boxRight = 460f
-            val boxTop = -460f; val boxBottom = 160f // Leave bottom space for stats
-            val latSpan = maxLat - minLat; val lonSpan = maxLon - minLon
-            val scaleFactor = if (latSpan == 0.0 || lonSpan == 0.0) 1f else kotlin.math.min((boxRight - boxLeft) / lonSpan, (boxBottom - boxTop) / latSpan).toFloat() * 0.9f
-            val centerLat = (minLat + maxLat) / 2.0; val centerLon = (minLon + maxLon) / 2.0
-            val boxCenterX = (boxLeft + boxRight) / 2f; val boxCenterY = (boxTop + boxBottom) / 2f
-
-            for (r in allRoutes) {
-                if (r.size >= 2) {
-                    val path = Path()
-                    r.forEachIndexed { idx, p ->
-                        val x = boxCenterX + ((p.longitude - centerLon) * scaleFactor).toFloat()
-                        val y = boxCenterY - ((p.latitude - centerLat) * scaleFactor).toFloat()
-                        if (idx == 0) path.moveTo(x, y) else path.lineTo(x, y)
-                    }
-                    val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.parseColor("#FF6D00"); style = Paint.Style.STROKE; strokeWidth = 8f; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND }
-                    canvas.drawPath(path, linePaint)
-                }
-            }
-        }
+        // Note: The route is already baked into the liveMapSnapshot natively by MapLibre/Mapbox.
+        // We only draw the route manually if we are NOT using the Full Maps format, or if for some reason the map background is absent.
+        // But since Full Maps requires the map background to be drawn in the container above, the route is already there.
 
         val leftAlign = -460f
         val titleLeftPaint = Paint(titlePaint).apply { textAlign = Paint.Align.LEFT }

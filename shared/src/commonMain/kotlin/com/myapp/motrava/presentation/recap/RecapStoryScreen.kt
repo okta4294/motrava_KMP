@@ -134,7 +134,7 @@ fun RecapStoryScreen(
                 ) {
                     Column {
                         Text("DISTANCE", style = MaterialTheme.typography.labelLarge, color = Color(0xFFFF6D00))
-                        Text("${"%.1f".format(recap.totalDistance)} km", style = MaterialTheme.typography.displayMedium, color = Color.White, fontWeight = FontWeight.Black)
+                        Text("${"%.1f".format(recap.totalDistance / 1000)} km", style = MaterialTheme.typography.displayMedium, color = Color.White, fontWeight = FontWeight.Black)
                     }
                 }
                 
@@ -169,7 +169,7 @@ fun RecapStoryScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = if (isPaused) "⏸ Paused" else "💡 Tip: Use Screen Record to save this video",
+                    text = if (isPaused) "⏸ Paused" else "",
                     color = Color.White.copy(alpha = 0.9f),
                     style = MaterialTheme.typography.labelMedium
                 )

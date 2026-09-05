@@ -4,6 +4,7 @@ import com.myapp.motrava.domain.model.TripRecap
 
 actual suspend fun exportRecapVideo(
     recap: TripRecap,
+    isDarkTheme: Boolean,
     onProgress: (Float) -> Unit
 ): String? {
     // iOS implementation: requires AVFoundation / AVAssetWriter

@@ -119,9 +119,11 @@ class TripRepository(
             }
             
             if (vehicleId != null) {
+                val cleanVehicleId = vehicleId.trim()
+                val cleanVehicleName = vehicleName?.trim()
                 trips = trips.filter { 
-                    it.vehicleId == vehicleId || 
-                    (vehicleName != null && it.vehicleName.equals(vehicleName, ignoreCase = true))
+                    (it.vehicleId != null && it.vehicleId.trim() == cleanVehicleId) || 
+                    (cleanVehicleName != null && it.vehicleName?.trim().equals(cleanVehicleName, ignoreCase = true))
                 }
             }
             

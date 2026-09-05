@@ -10,5 +10,6 @@ import com.myapp.motrava.domain.model.TripRecap
  */
 expect suspend fun exportRecapVideo(
     recap: TripRecap,
+    isDarkTheme: Boolean,
     onProgress: (Float) -> Unit
 ): String?

@@ -48,6 +48,12 @@ class RecapViewModel(
     fun loadRecap(periodName: String, startDate: String, endDate: String) {
         viewModelScope.launch {
             _uiState.value = RecapUiState.Loading
+            if (_vehicles.value.isEmpty()) {
+                val result = vehicleRepository.getVehicles()
+                if (result.isSuccess) {
+                    _vehicles.value = result.getOrNull() ?: emptyList()
+                }
+            }
             val vehicleId = _selectedVehicleId.value
             val vehicleName = _vehicles.value.find { it.id == vehicleId }?.vehicleName
             

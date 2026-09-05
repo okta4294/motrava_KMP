@@ -27,6 +27,9 @@ import kotlinx.coroutines.launch
 import org.koin.compose.viewmodel.koinViewModel
 import com.myapp.motrava.presentation.components.MapView
 import androidx.compose.ui.graphics.ImageBitmap
+import com.myapp.motrava.presentation.recap.exportRecapVideo
+import com.myapp.motrava.domain.model.TripRecap
+import androidx.compose.material.icons.filled.Videocam
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -44,6 +47,11 @@ fun TripDetailScreen(
     var cachedSnapshot by remember { mutableStateOf<ImageBitmap?>(null) }
     var isWaitingForSnapshot by remember { mutableStateOf(false) }
 
+    var isExportingVideo by remember { mutableStateOf(false) }
+    var videoExportProgress by remember { mutableStateOf(0f) }
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    val isDarkTheme = androidx.compose.material3.MaterialTheme.colorScheme.background.red < 0.5f
     val tripForShare = (state as? TripDetailViewModel.TripDetailState.Success)?.trip
 
     if (showPosterEditor && tripForShare != null) {
@@ -89,14 +97,44 @@ fun TripDetailScreen(
         }
     }
 
+    if (isExportingVideo) {
+        Dialog(onDismissRequest = { }) {
+            Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface) {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    CircularProgressIndicator(
+                        progress = { videoExportProgress },
+                        color = AccentPeach,
+                        modifier = Modifier.padding(8.dp)
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("Exporting Video...", fontWeight = FontWeight.Medium)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "${(videoExportProgress * 100).toInt()}%",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+    }
+
     LaunchedEffect(tripId) {
         viewModel.fetchTripDetail(tripId)
+    }
+
+    LaunchedEffect(isDarkTheme) {
+        cachedSnapshot = null
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Trip Detail", fontWeight = FontWeight.Bold) },
+                windowInsets = WindowInsets(0.dp),
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onBackground)
@@ -108,6 +146,7 @@ fun TripDetailScreen(
                 )
             )
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
         Box(
@@ -171,10 +210,34 @@ fun TripDetailScreen(
                                         cachedSnapshot = getMapSnapshot(
                                             route = trip.route ?: emptyList(),
                                             width = 1080,
-                                            height = 1920
+                                            height = 1920,
+                                            isDarkTheme = isDarkTheme
                                         )
                                         isWaitingForSnapshot = false
                                         showPosterEditor = true
+                                    }
+                                }
+                            },
+                            onExportVideo = {
+                                if (!isExportingVideo) {
+                                    isExportingVideo = true
+                                    videoExportProgress = 0f
+                                    val singleTripRecap = TripRecap(
+                                        periodName = trip.vehicleName ?: "Activity Video",
+                                        totalDistance = trip.totalDistance ?: 0.0,
+                                        totalDuration = trip.duration ?: 0L,
+                                        totalTrips = 1,
+                                        maxSpeed = trip.maximumSpeed ?: 0.0,
+                                        averageSpeed = trip.averageSpeed ?: 0.0,
+                                        routes = listOf(trip.route ?: emptyList())
+                                    )
+                                    coroutineScope.launch {
+                                        val result = exportRecapVideo(singleTripRecap, isDarkTheme) { p ->
+                                            videoExportProgress = p
+                                        }
+                                        isExportingVideo = false
+                                        val msg = if (result != null) "✅ Video saved to Gallery/Motrava" else "❌ Export failed"
+                                        snackbarHostState.showSnackbar(msg)
                                     }
                                 }
                             },
@@ -190,7 +253,7 @@ fun TripDetailScreen(
 
 
 @Composable
-fun TripStatsCard(trip: TripDetailData, onOpenPosterEditor: (Boolean) -> Unit, onDeleteTrip: () -> Unit) {
+fun TripStatsCard(trip: TripDetailData, onOpenPosterEditor: (Boolean) -> Unit, onExportVideo: () -> Unit, onDeleteTrip: () -> Unit) {
     var showDeleteDialog by remember { mutableStateOf(false) }
 
     // ponytail: simple confirmation dialog
@@ -238,15 +301,30 @@ fun TripStatsCard(trip: TripDetailData, onOpenPosterEditor: (Boolean) -> Unit, o
                 } ?: "0s")
             }
             Spacer(modifier = Modifier.height(20.dp))
-            Button(
-                onClick = { onOpenPosterEditor(false) },
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = AccentPeach, contentColor = Color.White),
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp)
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Icon(Icons.Default.Image, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Export Route", fontWeight = FontWeight.Bold)
+                Button(
+                    onClick = { onOpenPosterEditor(false) },
+                    modifier = Modifier.weight(1f).height(50.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = AccentPeach, contentColor = Color.White),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Icon(Icons.Default.Image, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Poster", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                }
+                Button(
+                    onClick = { onExportVideo() },
+                    modifier = Modifier.weight(1f).height(50.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = AccentPeach, contentColor = Color.White),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Icon(Icons.Default.Videocam, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Video", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                }
             }
             Spacer(modifier = Modifier.height(10.dp))
             OutlinedButton(

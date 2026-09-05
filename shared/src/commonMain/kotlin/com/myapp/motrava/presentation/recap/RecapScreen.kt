@@ -47,6 +47,7 @@ fun RecapScreen(
     var videoExportProgress by remember { mutableStateOf(0f) }
     var videoExportResult by remember { mutableStateOf<String?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
+    val isDarkTheme = androidx.compose.material3.MaterialTheme.colorScheme.background.red < 0.5f
     
 
     // Default to current month
@@ -86,6 +87,9 @@ fun RecapScreen(
         // Reset cached snapshot when period or vehicle changes
         cachedSnapshot = null
         viewModel.loadRecap(periodName, startDate, endDate)
+    }
+    LaunchedEffect(isDarkTheme) {
+        cachedSnapshot = null
     }
 
     if (isWaitingForSnapshot) {
@@ -132,6 +136,7 @@ fun RecapScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Trip Recap") },
+                windowInsets = WindowInsets(0.dp),
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -265,7 +270,7 @@ fun RecapScreen(
                                 Text("You completed", style = MaterialTheme.typography.bodyLarge)
                                 Text("${recap.totalTrips} Trips", style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.Bold)
                                 Text("covering", style = MaterialTheme.typography.bodyLarge)
-                                Text("${"%.1f".format(recap.totalDistance)} km", style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                Text("${"%.1f".format(recap.totalDistance / 1000)} km", style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                                 
                                 Spacer(modifier = Modifier.height(16.dp))
                                 
@@ -315,8 +320,9 @@ fun RecapScreen(
                                 onClick = { 
                                     if (cachedSnapshot == null) {
                                         isWaitingForSnapshot = true
-                                        coroutineScope.launch(kotlinx.coroutines.Dispatchers.Main) {
-                                            cachedSnapshot = getMultiMapSnapshot(recap.routes, 1080, 1920)
+                                        coroutineScope.launch {
+                                            val snapshot = getMultiMapSnapshot(recap.routes, 1080, 1920, isDarkTheme = isDarkTheme)
+                                            cachedSnapshot = snapshot
                                             isWaitingForSnapshot = false
                                             showPosterEditor = true
                                         }
@@ -338,7 +344,7 @@ fun RecapScreen(
                                         videoExportProgress = 0f
                                         videoExportResult = null
                                         coroutineScope.launch {
-                                            val result = exportRecapVideo(recap) { p ->
+                                            val result = exportRecapVideo(recap, isDarkTheme) { p ->
                                                 videoExportProgress = p
                                             }
                                             isExportingVideo = false
@@ -378,7 +384,7 @@ fun RecapScreen(
                             stat2Label = "Avg Speed",
                             stat2Value = "${"%.1f".format(recap.averageSpeed)} km/h",
                             stat3Label = "Total Distance",
-                            stat3Value = "${"%.1f".format(recap.totalDistance)} km",
+                            stat3Value = "${"%.1f".format(recap.totalDistance / 1000)} km",
                             multiRoutes = recap.routes
                         )
                         PosterEditorDialog(
