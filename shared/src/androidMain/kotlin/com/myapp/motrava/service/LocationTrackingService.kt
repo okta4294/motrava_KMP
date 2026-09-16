@@ -21,6 +21,7 @@ import com.myapp.motrava.data.remote.ApiService
 import com.myapp.motrava.data.local.LocationPointDao
 import com.myapp.motrava.data.local.LocationPointEntity
 import kotlinx.coroutines.*
+import kotlinx.coroutines.sync.Mutex
 import org.koin.android.ext.android.inject
 import java.text.SimpleDateFormat
 import java.util.*
@@ -46,6 +47,7 @@ class LocationTrackingService : Service() {
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val prefs by lazy { getSharedPreferences("trip_service_prefs", Context.MODE_PRIVATE) }
+    private val syncMutex = Mutex()
 
     override fun onCreate() {
         super.onCreate()
@@ -93,6 +95,27 @@ class LocationTrackingService : Service() {
                     }
                 } catch (e: Exception) {
                     Log.e("LocationService", "Failed to sync pending trip $tId", e)
+                }
+            }
+        }
+
+        // Finalize any trip that ended offline once internet is back
+        val pendingEndTrip = prefs.getString("pending_end_trip", null)
+        if (pendingEndTrip != null) {
+            val remainingUnsynced = locationPointDao.getUnsyncedByTrip(pendingEndTrip, 1)
+            if (remainingUnsynced.isEmpty()) {
+                val pendingDist = prefs.getFloat("pending_end_distance", 0f).toDouble()
+                try {
+                    val endResp = apiService.endTrip(pendingEndTrip, pendingDist)
+                    if (endResp.isSuccessful) {
+                        Log.i("LocationService", "Successfully ended pending offline trip $pendingEndTrip")
+                        prefs.edit()
+                            .remove("pending_end_trip")
+                            .remove("pending_end_distance")
+                            .apply()
+                    }
+                } catch (e: Exception) {
+                    Log.e("LocationService", "Failed to end pending offline trip $pendingEndTrip", e)
                 }
             }
         }
@@ -191,7 +214,10 @@ class LocationTrackingService : Service() {
                             println("LocationService: [DIAG] REST endTrip called successfully. distance=${finalDistance}m")
                         } catch (e: Exception) {
                             Log.e("LocationService", "REST endTrip failed, flagging for later sync", e)
-                            prefs.edit().putString("pending_end_trip", currentTrip).apply()
+                            prefs.edit()
+                                .putString("pending_end_trip", currentTrip)
+                                .putFloat("pending_end_distance", finalDistance.toFloat())
+                                .apply()
                         }
                     }
                     tripSessionManager.setTripInactive()
@@ -376,21 +402,27 @@ class LocationTrackingService : Service() {
                 )
                 locationPointDao.insert(entity)
                 
-                // Immediately try to sync batch if internet is available
-                val pending = locationPointDao.getUnsyncedByTrip(tid, 100)
-                if (pending.isNotEmpty()) {
-                    val messages = pending.map { pt ->
-                        WsLocationMessage(
-                            tripId = tid,
-                            latitude = pt.latitude, longitude = pt.longitude,
-                            speed = pt.speed, heading = pt.heading,
-                            accuracy = pt.accuracy, altitude = pt.altitude,
-                            battery = pt.battery, timestamp = pt.timestamp
-                        )
-                    }
-                    val resp = apiService.batchUploadLocations(tid, messages)
-                    if (resp.isSuccessful) {
-                        locationPointDao.markAsSynced(pending.map { it.id })
+                // Try to sync batch if internet is available, avoid overlapping requests with Mutex
+                if (syncMutex.tryLock()) {
+                    try {
+                        val pending = locationPointDao.getUnsyncedByTrip(tid, 100)
+                        if (pending.isNotEmpty()) {
+                            val messages = pending.map { pt ->
+                                WsLocationMessage(
+                                    tripId = tid,
+                                    latitude = pt.latitude, longitude = pt.longitude,
+                                    speed = pt.speed, heading = pt.heading,
+                                    accuracy = pt.accuracy, altitude = pt.altitude,
+                                    battery = pt.battery, timestamp = pt.timestamp
+                                )
+                            }
+                            val resp = apiService.batchUploadLocations(tid, messages)
+                            if (resp.isSuccessful) {
+                                locationPointDao.markAsSynced(pending.map { it.id })
+                            }
+                        }
+                    } finally {
+                        syncMutex.unlock()
                     }
                 }
             } catch (e: Exception) {

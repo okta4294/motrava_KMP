@@ -24,3 +24,5 @@ node_modules/
 androidApp/release/
 logcat.txt
 AGENTS.md
+
+graphify-out/

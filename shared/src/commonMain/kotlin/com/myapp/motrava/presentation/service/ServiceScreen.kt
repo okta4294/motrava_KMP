@@ -60,7 +60,7 @@ fun ServiceScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .padding(horizontal = 20.dp),
-            contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp),
+            contentPadding = PaddingValues(top = 8.dp, bottom = 120.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // Vehicle Selector

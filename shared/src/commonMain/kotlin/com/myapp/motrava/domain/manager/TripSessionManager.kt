@@ -23,6 +23,8 @@ class TripSessionManager {
     private val _currentRoute = MutableStateFlow<List<Pair<Double, Double>>>(emptyList())
     val currentRoute: StateFlow<List<Pair<Double, Double>>> = _currentRoute.asStateFlow()
 
+    private val routePointsList = ArrayList<Pair<Double, Double>>(500)
+
     fun setTripActive(tripId: String, vehicleId: String?) {
         _activeTripId.value = tripId
         _activeVehicleId.value = vehicleId
@@ -34,6 +36,7 @@ class TripSessionManager {
         _distanceMeters.value = 0f
         _speedKmh.value = 0f
         _currentLatLng.value = null
+        routePointsList.clear()
         _currentRoute.value = emptyList()
     }
 
@@ -41,6 +44,7 @@ class TripSessionManager {
         _distanceMeters.value = distance
         _speedKmh.value = speed
         _currentLatLng.value = location
-        _currentRoute.value = _currentRoute.value + location
+        routePointsList.add(location)
+        _currentRoute.value = ArrayList(routePointsList)
     }
 }

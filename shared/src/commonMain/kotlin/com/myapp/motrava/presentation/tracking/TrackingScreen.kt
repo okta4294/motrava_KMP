@@ -2,7 +2,11 @@ package com.myapp.motrava.presentation.tracking
 
 
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -16,6 +20,8 @@ import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.Route
+import androidx.compose.material.icons.filled.TwoWheeler
 import androidx.compose.material3.*
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
@@ -88,6 +94,7 @@ fun TrackingScreen(
             onClick = { centerTrigger++ },
             modifier = Modifier
                 .align(Alignment.TopEnd)
+                .statusBarsPadding()
                 .padding(top = 16.dp, end = 16.dp),
             containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
             contentColor = highlightColor,
@@ -100,76 +107,102 @@ fun TrackingScreen(
             )
         }
 
-        // Top-Left Speedometer Widget (Stitch design)
-        Box(
+        // Top-Left Unified HUD Card (Speedometer + Distance + Live pulse)
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
+            shadowElevation = 6.dp,
             modifier = Modifier
                 .align(Alignment.TopStart)
+                .statusBarsPadding()
                 .padding(top = 16.dp, start = 16.dp)
-        ) {
-            Surface(
-                shape = RoundedCornerShape(14.dp),
-                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
-                shadowElevation = 8.dp,
-                modifier = Modifier.border(
+                .border(
                     width = 1.dp,
-                    color = MaterialTheme.colorScheme.outline,
-                    shape = RoundedCornerShape(14.dp)
+                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
+                    shape = RoundedCornerShape(16.dp)
                 )
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
+                // Live recording pulsing dot if tracking
+                if (isTracking) {
+                    val infiniteTransition = rememberInfiniteTransition(label = "pulse_rec")
+                    val pulseAlpha by infiniteTransition.animateFloat(
+                        initialValue = 1f,
+                        targetValue = 0.25f,
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(800, easing = LinearEasing),
+                            repeatMode = RepeatMode.Reverse
+                        ),
+                        label = "pulse_alpha"
+                    )
+                    Box(
+                        modifier = Modifier
+                            .size(9.dp)
+                            .clip(CircleShape)
+                            .background(ActivePink.copy(alpha = pulseAlpha))
+                    )
+                }
+
+                // Speed Section
                 Row(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    // Speedometer icon
                     Icon(
                         imageVector = Icons.Default.Speed,
-                        contentDescription = null,
+                        contentDescription = "Speed",
                         tint = highlightColor,
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(22.dp)
                     )
-                    // Speed value
                     Row(
                         verticalAlignment = Alignment.Bottom,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        horizontalArrangement = Arrangement.spacedBy(3.dp)
                     ) {
                         Text(
                             text = "%.0f".format(speedKmh),
-                            fontSize = 28.sp,
-                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.Bold,
                             color = highlightColor
                         )
                         Text(
                             text = "km/h",
-                            fontSize = 13.sp,
+                            fontSize = 11.sp,
                             fontWeight = FontWeight.Medium,
-                            color = highlightColor.copy(alpha = 0.9f),
-                            modifier = Modifier.padding(bottom = 4.dp)
+                            color = highlightColor.copy(alpha = 0.85f),
+                            modifier = Modifier.padding(bottom = 3.dp)
                         )
                     }
                 }
-            }
-        }
 
-        // Distance indicator (only while tracking)
-        if (isTracking) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(top = 72.dp, start = 16.dp)
-            ) {
-                Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = GradientPurple.copy(alpha = 0.9f),
-                    shadowElevation = 4.dp
-                ) {
-                    Text(
-                        text = "%.2f km".format(distanceMeters / 1000f),
-                        color = Color.White,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                // Distance Section (divider + distance)
+                if (isTracking) {
+                    Box(
+                        modifier = Modifier
+                            .width(1.dp)
+                            .height(24.dp)
+                            .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
                     )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Route,
+                            contentDescription = "Distance",
+                            tint = GradientPurple,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Text(
+                            text = "%.2f km".format(distanceMeters / 1000f),
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
                 }
             }
         }
@@ -178,7 +211,8 @@ fun TrackingScreen(
         Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 32.dp, start = 20.dp, end = 20.dp)
+                .navigationBarsPadding()
+                .padding(bottom = 120.dp, start = 20.dp, end = 20.dp)
                 .fillMaxWidth()
         ) {
             if (tripState is TripViewModel.TripState.Starting) {
@@ -214,7 +248,7 @@ fun TrackingScreen(
                     )
                 }
             } else if (isTracking) {
-                // While tracking: vehicle name + hold-to-stop button
+                // While tracking: vehicle name badge + hold-to-stop button
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.fillMaxWidth()
@@ -224,17 +258,31 @@ fun TrackingScreen(
                     val vehicleName = vehicles?.find { it.id == targetVehicleId }?.vehicleName
                     if (vehicleName != null) {
                         Surface(
-                            color = AccentGreen.copy(alpha = 0.15f),
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.padding(bottom = 16.dp)
+                            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
+                            shape = RoundedCornerShape(16.dp),
+                            shadowElevation = 4.dp,
+                            modifier = Modifier
+                                .padding(bottom = 16.dp)
+                                .border(1.dp, AccentGreen.copy(alpha = 0.4f), RoundedCornerShape(16.dp))
                         ) {
-                            Text(
-                                "Driving: $vehicleName",
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                                color = AccentGreen,
-                                fontWeight = FontWeight.SemiBold,
-                                style = MaterialTheme.typography.bodyMedium
-                            )
+                            Row(
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.TwoWheeler,
+                                    contentDescription = null,
+                                    tint = AccentGreen,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Text(
+                                    "Driving: $vehicleName",
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    fontWeight = FontWeight.SemiBold,
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
                         }
                     }
                     HoldToStopButton(
@@ -252,7 +300,7 @@ fun TrackingScreen(
                     shadowElevation = 12.dp,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(24.dp))
+                        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f), RoundedCornerShape(24.dp))
                 ) {
                     Row(
                         modifier = Modifier
@@ -286,47 +334,58 @@ fun TrackingScreen(
                                             expanded = expanded,
                                             onExpandedChange = { expanded = !expanded }
                                         ) {
-                                            // Styled vehicle selector button
+                                            // Styled vehicle selector button with vehicle icon badge
                                             Surface(
                                                 onClick = { expanded = true },
                                                 shape = RoundedCornerShape(14.dp),
-                                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
                                                 modifier = Modifier
                                                     .menuAnchor()
                                                     .fillMaxWidth()
-                                                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(14.dp))
+                                                    .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), RoundedCornerShape(14.dp))
                                             ) {
-                                                Column(
-                                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
+                                                Row(
+                                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                                                 ) {
-                                                    Text(
-                                                        "VEHICLE",
-                                                        fontSize = 9.sp,
-                                                        fontWeight = FontWeight.SemiBold,
-                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                        letterSpacing = 1.sp
-                                                    )
-                                                    Spacer(modifier = Modifier.height(2.dp))
-                                                    Row(
-                                                        modifier = Modifier.fillMaxWidth(),
-                                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                                        verticalAlignment = Alignment.CenterVertically
+                                                    Surface(
+                                                        shape = RoundedCornerShape(10.dp),
+                                                        color = highlightColor.copy(alpha = 0.15f),
+                                                        modifier = Modifier.size(36.dp)
                                                     ) {
+                                                        Box(contentAlignment = Alignment.Center) {
+                                                            Icon(
+                                                                imageVector = Icons.Default.TwoWheeler,
+                                                                contentDescription = null,
+                                                                tint = highlightColor,
+                                                                modifier = Modifier.size(20.dp)
+                                                            )
+                                                        }
+                                                    }
+                                                    Column(modifier = Modifier.weight(1f)) {
+                                                        Text(
+                                                            "VEHICLE",
+                                                            fontSize = 9.sp,
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                            letterSpacing = 1.sp
+                                                        )
+                                                        Spacer(modifier = Modifier.height(2.dp))
                                                         Text(
                                                             text = selectedVehicle?.vehicleName ?: "Select",
                                                             color = MaterialTheme.colorScheme.onSurface,
-                                                            fontWeight = FontWeight.Medium,
-                                                            fontSize = 16.sp,
-                                                            maxLines = 1,
-                                                            modifier = Modifier.weight(1f)
-                                                        )
-                                                        Icon(
-                                                            Icons.Default.KeyboardArrowDown,
-                                                            contentDescription = null,
-                                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                            modifier = Modifier.size(20.dp)
+                                                            fontWeight = FontWeight.SemiBold,
+                                                            fontSize = 15.sp,
+                                                            maxLines = 1
                                                         )
                                                     }
+                                                    Icon(
+                                                        Icons.Default.KeyboardArrowDown,
+                                                        contentDescription = null,
+                                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                        modifier = Modifier.size(20.dp)
+                                                    )
                                                 }
                                             }
                                             ExposedDropdownMenu(
@@ -335,7 +394,26 @@ fun TrackingScreen(
                                             ) {
                                                 vehicles.forEach { vehicle ->
                                                     DropdownMenuItem(
-                                                        text = { Text("${vehicle.vehicleName} (${vehicle.plateNumber})") },
+                                                        leadingIcon = {
+                                                            Icon(
+                                                                imageVector = Icons.Default.TwoWheeler,
+                                                                contentDescription = null,
+                                                                tint = highlightColor,
+                                                                modifier = Modifier.size(20.dp)
+                                                            )
+                                                        },
+                                                        text = {
+                                                            Column {
+                                                                Text(vehicle.vehicleName, fontWeight = FontWeight.SemiBold)
+                                                                if (!vehicle.plateNumber.isNullOrEmpty()) {
+                                                                    Text(
+                                                                        vehicle.plateNumber,
+                                                                        style = MaterialTheme.typography.bodySmall,
+                                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                                    )
+                                                                }
+                                                            }
+                                                        },
                                                         onClick = {
                                                             selectedVehicleId = vehicle.id
                                                             expanded = false
@@ -344,7 +422,7 @@ fun TrackingScreen(
                                                 }
                                                 HorizontalDivider()
                                                 DropdownMenuItem(
-                                                    text = { Text("Add New Vehicle...") },
+                                                    text = { Text("Add New Vehicle...", fontWeight = FontWeight.Medium) },
                                                     onClick = {
                                                         expanded = false
                                                         onNavigateToAddVehicle()
@@ -375,13 +453,13 @@ fun TrackingScreen(
                             containerColor = AccentPeach,
                             contentColor = Color.White,
                             shape = CircleShape,
-                            modifier = Modifier.size(60.dp),
+                            modifier = Modifier.size(56.dp),
                             elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 4.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.PlayArrow,
                                 contentDescription = "Start",
-                                modifier = Modifier.size(32.dp),
+                                modifier = Modifier.size(30.dp),
                                 tint = if (!hasVehicles || !hasLocationPermission) Color.White.copy(alpha = 0.4f) else Color.White
                             )
                         }

@@ -128,6 +128,7 @@ actual suspend fun getMultiMapSnapshot(routes: List<List<RoutePoint>>, width: In
             try {
                 val context = GlobalContext.get().get<Context>()
 
+                // ponytail: Use ALL original points only for accurate bounds calculation
                 val boundsBuilder = LatLngBounds.Builder()
                 routes.forEach { route ->
                     if (route.isNotEmpty()) {
@@ -162,11 +163,38 @@ actual suspend fun getMultiMapSnapshot(routes: List<List<RoutePoint>>, width: In
 
                 val density = context.resources.displayMetrics.density
 
+                // ponytail: Cap routes + subsample points to prevent MapLibre blank/timeout.
+                // Too many routes × too many GPS points = GeoJSON payload so large that
+                // the snapshotter tile pipeline stalls or the renderer runs OOM.
+                // Strategy: keep at most MAX_ROUTES routes (evenly spaced), then subsample
+                // each route down to MAX_PTS_PER_ROUTE points while always keeping first/last.
+                val MAX_ROUTES = 40
+                val MAX_PTS_PER_ROUTE = 60
+
+                val sampledRoutes = if (routes.size <= MAX_ROUTES) {
+                    routes
+                } else {
+                    // Pick evenly distributed routes across the full list
+                    val step = routes.size.toFloat() / MAX_ROUTES
+                    (0 until MAX_ROUTES).map { routes[(it * step).toInt()] }
+                }
+
+                fun subsamplePoints(pts: List<RoutePoint>): List<RoutePoint> {
+                    if (pts.size <= MAX_PTS_PER_ROUTE) return pts
+                    val result = mutableListOf(pts.first())
+                    val step = (pts.size - 1).toFloat() / (MAX_PTS_PER_ROUTE - 1)
+                    for (i in 1 until MAX_PTS_PER_ROUTE - 1) {
+                        result.add(pts[(i * step).toInt()])
+                    }
+                    result.add(pts.last())
+                    return result
+                }
+
                 val features = mutableListOf<Feature>()
-                routes.forEach { r ->
+                sampledRoutes.forEach { r ->
                     if (r.size >= 2) {
-                        val points = r.map { Point.fromLngLat(it.longitude, it.latitude) }
-                        features.add(Feature.fromGeometry(LineString.fromLngLats(points)))
+                        val pts = subsamplePoints(r).map { Point.fromLngLat(it.longitude, it.latitude) }
+                        features.add(Feature.fromGeometry(LineString.fromLngLats(pts)))
                     }
                 }
                 if (features.isNotEmpty()) {

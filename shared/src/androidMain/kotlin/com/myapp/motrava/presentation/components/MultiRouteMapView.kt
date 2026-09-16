@@ -43,21 +43,42 @@ actual fun MultiRouteMapView(
         AndroidMapView(context, opts)
     }
 
-    LaunchedEffect(routes) {
-        if (routes.isNotEmpty()) {
-            mapView.getMapAsync { map ->
-                map.getStyle { style ->
+    // ponytail: Single LaunchedEffect keyed on both routes AND isDarkTheme to prevent race condition.
+    // Previously, two separate effects could interleave: the routes effect called map.getStyle()
+    // while the theme effect was still loading a new style from CDN → getStyle returned null/stale
+    // → blank map. Now style is always set first and routes drawn only in the onStyleLoaded callback.
+    val mapStyleUrl = if (isDarkTheme) {
+        "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"
+    } else {
+        "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json"
+    }
+
+    LaunchedEffect(routes, isDarkTheme) {
+        mapView.getMapAsync { map ->
+            map.setStyle(mapStyleUrl) { style ->
+                // Routes are always drawn after style is confirmed ready
+                if (routes.isNotEmpty()) {
                     drawMultiRoutes(map, style, routes)
-                    
+
                     val boundsBuilder = LatLngBounds.Builder()
                     var hasPoints = false
-                    routes.forEach { trip ->
-                        trip.forEach { point ->
+                    var firstLat = 0.0
+                    var firstLng = 0.0
+                    var hasVariation = false
+
+                    for (trip in routes) {
+                        for (point in trip) {
                             boundsBuilder.include(LatLng(point.latitude, point.longitude))
-                            hasPoints = true
+                            if (!hasPoints) {
+                                firstLat = point.latitude
+                                firstLng = point.longitude
+                                hasPoints = true
+                            } else if (!hasVariation && (point.latitude != firstLat || point.longitude != firstLng)) {
+                                hasVariation = true
+                            }
                         }
                     }
-                    
+
                     if (hasPoints) {
                         mapView.post {
                             val w = mapView.width
@@ -65,38 +86,19 @@ actual fun MultiRouteMapView(
                             if (w > 0 && h > 0) {
                                 val safePadX = kotlin.math.min((w * 0.35).toInt(), (w / 2) - 20)
                                 val safePadY = kotlin.math.min(150, (h / 2) - 20)
-                                
                                 try {
-                                    val bounds = boundsBuilder.build()
-                                    val allPts = routes.flatten()
-                                    val hasVariation = allPts.any { it.latitude != allPts.first().latitude || it.longitude != allPts.first().longitude }
                                     if (hasVariation) {
+                                        val bounds = boundsBuilder.build()
                                         map.easeCamera(CameraUpdateFactory.newLatLngBounds(bounds, safePadX, safePadY, safePadX, safePadY), 300)
-                                    } else if (allPts.isNotEmpty()) {
-                                        map.easeCamera(CameraUpdateFactory.newLatLngZoom(LatLng(allPts.first().latitude, allPts.first().longitude), 15.0), 300)
+                                    } else {
+                                        map.easeCamera(CameraUpdateFactory.newLatLngZoom(LatLng(firstLat, firstLng), 15.0), 300)
                                     }
-                                } catch (e: Exception) {
+                                } catch (_: Exception) {
                                     // ignore bounds builder error if points are too close
                                 }
                             }
                         }
                     }
-                }
-            }
-        }
-    }
-
-    val mapStyleUrl = if (isDarkTheme) {
-        "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"
-    } else {
-        "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json"
-    }
-    
-    LaunchedEffect(isDarkTheme) {
-        mapView.getMapAsync { map ->
-            map.setStyle(mapStyleUrl) { style ->
-                if (routes.isNotEmpty()) {
-                    drawMultiRoutes(map, style, routes)
                 }
             }
         }

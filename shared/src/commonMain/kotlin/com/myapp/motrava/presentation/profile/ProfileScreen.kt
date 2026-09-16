@@ -54,7 +54,7 @@ fun ProfileScreen(
         modifier = Modifier
             .fillMaxSize()
             .padding(horizontal = 20.dp),
-        contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp),
+        contentPadding = PaddingValues(top = 8.dp, bottom = 120.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         // Profile Header (centered)
@@ -271,6 +271,17 @@ fun ProfileScreen(
                         else -> {}
                     }
                 }
+            }
+            Spacer(modifier = Modifier.height(24.dp))
+            Box(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 32.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Motrava v2.0",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                )
             }
         }
 

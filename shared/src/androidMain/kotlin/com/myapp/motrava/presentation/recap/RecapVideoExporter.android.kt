@@ -67,17 +67,6 @@ actual suspend fun exportRecapVideo(
         val snapshotResult = captureMapSnapshot(context, allRoutes, w, h, isDarkTheme)
         onProgress(0.05f)
 
-        // === Generate all frames ===
-        val frames = generateFrames(
-            recap = recap,
-            allRoutes = allRoutes,
-            snapshotResult = snapshotResult,
-            w = w, h = h,
-            isDarkTheme = isDarkTheme,
-            totalFrames = 450, // 15 detik @ 30fps
-            onProgress = { p -> onProgress(0.05f + p * 0.65f) }  // 5–70% = render
-        )
-
         // === Output path ===
         val fileName = "motrava_recap_${recap.periodName.replace(" ", "_")}_${System.currentTimeMillis()}.mp4"
         val outputFile = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -88,18 +77,19 @@ actual suspend fun exportRecapVideo(
             File(dir, fileName)
         }
 
-        // === Encode MP4 ===
-        encodeFramesToMp4(
-            frames = frames,
+        // === Stream render and encode MP4 (single frame buffer, avoids 3.7GB OOM) ===
+        renderAndEncodeToMp4(
             outputPath = outputFile.absolutePath,
             width = w,
             height = h,
             fps = fps,
-            onProgress = { p -> onProgress(0.7f + p * 0.28f) }  // 70–98%
+            totalFrames = 450, // 15 detik @ 30fps
+            recap = recap,
+            allRoutes = allRoutes,
+            snapshotResult = snapshotResult,
+            isDarkTheme = isDarkTheme,
+            onProgress = { p -> onProgress(0.05f + p * 0.93f) }  // 5–98%
         )
-
-        // Free bitmaps
-        frames.forEach { it.recycle() }
 
         // === Save to MediaStore (Android Q+) ===
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -227,20 +217,148 @@ private suspend fun captureMapSnapshot(
 }
 
 
-private fun generateFrames(
+private class StoryOverlayPaints(isDarkTheme: Boolean) {
+    val brandPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#FF6D00")
+        textSize = 48f
+        typeface = Typeface.create(Typeface.DEFAULT_BOLD, Typeface.BOLD)
+        letterSpacing = 0.2f
+        textAlign = Paint.Align.CENTER
+    }
+    val titlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
+        textSize = 76f
+        typeface = Typeface.create(Typeface.DEFAULT_BOLD, Typeface.BOLD)
+        textAlign = Paint.Align.LEFT
+    }
+    val subPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
+        textSize = 40f
+        typeface = Typeface.DEFAULT
+        textAlign = Paint.Align.LEFT
+    }
+    val distLabelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#FF6D00")
+        textSize = 34f
+        typeface = Typeface.create(Typeface.DEFAULT_BOLD, Typeface.BOLD)
+        letterSpacing = 0.1f
+        textAlign = Paint.Align.LEFT
+    }
+    val distValPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
+        textSize = 96f
+        typeface = Typeface.create(Typeface.DEFAULT_BOLD, Typeface.BOLD)
+        textAlign = Paint.Align.LEFT
+    }
+    val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor(if (isDarkTheme) "#808080" else "#B3B3B3")
+        textSize = 34f
+        typeface = Typeface.create(Typeface.DEFAULT_BOLD, Typeface.BOLD)
+        letterSpacing = 0.1f
+        textAlign = Paint.Align.LEFT
+    }
+    val valPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
+        textSize = 68f
+        typeface = Typeface.create(Typeface.DEFAULT_BOLD, Typeface.BOLD)
+        textAlign = Paint.Align.LEFT
+    }
+}
+
+private fun drawStoryOverlay(
+    canvas: Canvas,
+    recap: TripRecap,
+    paints: StoryOverlayPaints,
+    distFormatted: String,
+    maxSpeedFormatted: String,
+    step1Alpha: Float, step1OffsetY: Float,
+    step2Alpha: Float, step2OffsetY: Float,
+    step3Alpha: Float, step3OffsetY: Float,
+    w: Int, h: Int
+) {
+    val startX = 90f
+
+    // Step 1: Brand Header & Period Title & "You were unstoppable."
+    if (step1Alpha > 0f) {
+        val a1 = (step1Alpha * 255).toInt().coerceIn(0, 255)
+
+        paints.brandPaint.alpha = a1
+        canvas.drawText("MOTRAVA", w / 2f, 300f + step1OffsetY, paints.brandPaint)
+
+        paints.titlePaint.alpha = a1
+        paints.subPaint.alpha = (a1 * 0.9f).toInt()
+        canvas.drawText(recap.periodName, startX, 680f + step1OffsetY, paints.titlePaint)
+        canvas.drawText("You were unstoppable.", startX, 745f + step1OffsetY, paints.subPaint)
+    }
+
+    // Step 2: DISTANCE & value
+    if (step2Alpha > 0f) {
+        val a2 = (step2Alpha * 255).toInt().coerceIn(0, 255)
+        paints.distLabelPaint.alpha = a2
+        paints.distValPaint.alpha = a2
+        canvas.drawText("DISTANCE", startX, 900f + step2OffsetY, paints.distLabelPaint)
+        canvas.drawText(distFormatted, startX, 1010f + step2OffsetY, paints.distValPaint)
+    }
+
+    // Step 3: TRIPS & MAX SPEED
+    if (step3Alpha > 0f) {
+        val a3 = (step3Alpha * 255).toInt().coerceIn(0, 255)
+        paints.labelPaint.alpha = a3
+        paints.valPaint.alpha = a3
+
+        // Column 1: TRIPS
+        canvas.drawText("TRIPS", startX, 1160f + step3OffsetY, paints.labelPaint)
+        canvas.drawText("${recap.totalTrips}", startX, 1245f + step3OffsetY, paints.valPaint)
+
+        // Column 2: MAX SPEED
+        val col2X = w * 0.52f
+        canvas.drawText("MAX SPEED", col2X, 1160f + step3OffsetY, paints.labelPaint)
+        canvas.drawText(maxSpeedFormatted, col2X, 1245f + step3OffsetY, paints.valPaint)
+    }
+}
+
+private fun drawRoutes(
+    canvas: Canvas,
+    allRoutes: List<List<RoutePoint>>,
+    drawnCounts: IntArray,
+    linePaint: Paint,
+    routePath: Path,
+    lngToX: (Double) -> Float,
+    latToY: (Double) -> Float
+) {
+    allRoutes.forEachIndexed { idx, r ->
+        val count = drawnCounts.getOrNull(idx)?.coerceAtMost(r.size) ?: 0
+        if (count < 2) return@forEachIndexed
+        routePath.rewind()
+        for (pi in 0 until count) {
+            val p = r[pi]
+            val x = lngToX(p.longitude); val y = latToY(p.latitude)
+            if (pi == 0) routePath.moveTo(x, y) else routePath.lineTo(x, y)
+        }
+        canvas.drawPath(routePath, linePaint)
+    }
+}
+
+// ─── Stream Render & Video Encoder (Single Reusable Bitmap Buffer) ────────────
+
+private const val MIME_TYPE = "video/avc"
+private const val BIT_RATE = 8_000_000 // 8 Mbps
+private const val I_FRAME_INTERVAL = 1
+
+private fun renderAndEncodeToMp4(
+    outputPath: String,
+    width: Int,
+    height: Int,
+    fps: Int,
+    totalFrames: Int,
     recap: TripRecap,
     allRoutes: List<List<RoutePoint>>,
     snapshotResult: SnapshotResult?,
-    w: Int, h: Int,
     isDarkTheme: Boolean,
-    totalFrames: Int = 450, // 15 detik @ 30fps
     onProgress: (Float) -> Unit
-): List<Bitmap> {
-    val frames = mutableListOf<Bitmap>()
-
-    // Scale map snapshot to fit the frame
+) {
     val scaledMap = snapshotResult?.bitmap?.let {
-        Bitmap.createScaledBitmap(it, w, h, true)
+        Bitmap.createScaledBitmap(it, width, height, true)
     }
 
     // ── Projection bounds: must match snapshot exactly so routes align with tiles ──
@@ -254,7 +372,6 @@ private fun generateFrames(
         projMinLon = snapshotResult.minLon
         projMaxLon = snapshotResult.maxLon
     } else {
-        // Inline fallback bounds computation (computeBounds removed, inline instead)
         var minLat = Double.MAX_VALUE; var maxLat = -Double.MAX_VALUE
         var minLon = Double.MAX_VALUE; var maxLon = -Double.MAX_VALUE
         for (r in allRoutes) for (p in r) {
@@ -273,7 +390,7 @@ private fun generateFrames(
         projMaxLon = maxLon + padLon
     }
 
-    // ── Web Mercator helpers (shared by camera + route drawing) ──
+    // ── Web Mercator helpers ──
     fun mercatorY(latDeg: Double): Double {
         val latRad = Math.toRadians(latDeg.coerceIn(-85.05, 85.05))
         return Math.log(Math.tan(Math.PI / 4.0 + latRad / 2.0))
@@ -282,10 +399,10 @@ private fun generateFrames(
     val mBottom = mercatorY(projMinLat)
     val mSpan   = mTop - mBottom
     val lonSpan = projMaxLon - projMinLon
-    fun lngToX(lon: Double): Float = ((lon - projMinLon) / lonSpan * w).toFloat()
-    fun latToY(lat: Double): Float  = ((mTop - mercatorY(lat)) / mSpan * h).toFloat()
+    fun lngToX(lon: Double): Float = ((lon - projMinLon) / lonSpan * width).toFloat()
+    fun latToY(lat: Double): Float  = ((mTop - mercatorY(lat)) / mSpan * height).toFloat()
 
-    // ── Animation state ──
+    // ── Animation points state ──
     data class AnimPoint(val routeIdx: Int, val pointIdx: Int)
     val allPoints = mutableListOf<AnimPoint>()
     allRoutes.forEachIndexed { ri, route ->
@@ -293,260 +410,29 @@ private fun generateFrames(
     }
     val drawnCounts = IntArray(allRoutes.size) { 0 }
 
-    // ── Camera state (starts on the first point, zoomed in) ──
+    // ── Camera state ──
     val firstPt   = allRoutes.firstOrNull()?.firstOrNull()
-    var camCenterX = if (firstPt != null) lngToX(firstPt.longitude) else w / 2f
-    var camCenterY = if (firstPt != null) latToY(firstPt.latitude)  else h / 2f
+    var camCenterX = if (firstPt != null) lngToX(firstPt.longitude) else width / 2f
+    var camCenterY = if (firstPt != null) latToY(firstPt.latitude)  else height / 2f
     var camZoom   = if (allRoutes.isNotEmpty()) 3.5f else 1f
 
-    for (frameIdx in 0 until totalFrames) {
-        val bmp    = createFrame(w, h)
-        val canvas = Canvas(bmp)
-
-        // 1. Update drawn route progress (12s / 360 frames)
-        val routeProgress = (frameIdx.toFloat() / 360f).coerceAtMost(1f)
-        if (allPoints.isNotEmpty()) {
-            val targetIdx = (routeProgress * (allPoints.size - 1)).toInt().coerceIn(0, allPoints.size - 1)
-            for (i in 0..targetIdx) {
-                val ap = allPoints[i]
-                if (drawnCounts[ap.routeIdx] <= ap.pointIdx) drawnCounts[ap.routeIdx] = ap.pointIdx + 1
-            }
-        }
-
-        // 2. Compute target camera from bounding box of currently drawn pixels
-        //    — mirrors MapLibre easeCamera(newLatLngBounds(currentBounds, padding))
-        var minPx = Float.MAX_VALUE; var maxPx = -Float.MAX_VALUE
-        var minPy = Float.MAX_VALUE; var maxPy = -Float.MAX_VALUE
-        var hasDrawn = false
-        allRoutes.forEachIndexed { idx, route ->
-            val count = drawnCounts[idx].coerceAtMost(route.size)
-            for (pi in 0 until count) {
-                val p  = route[pi]
-                val px = lngToX(p.longitude)
-                val py = latToY(p.latitude)
-                if (px < minPx) minPx = px; if (px > maxPx) maxPx = px
-                if (py < minPy) minPy = py; if (py > maxPy) maxPy = py
-                hasDrawn = true
-            }
-        }
-
-        val targetCamCenterX: Float
-        val targetCamCenterY: Float
-        val targetCamZoom: Float
-
-        if (!hasDrawn) {
-            // Initialise camera at route start, zoomed in tight
-            targetCamCenterX = camCenterX
-            targetCamCenterY = camCenterY
-            targetCamZoom    = camZoom
-        } else {
-            // Fit camera to drawn route bounds + 15% padding (like MapLibre)
-            targetCamCenterX = (minPx + maxPx) / 2f
-            targetCamCenterY = (minPy + maxPy) / 2f
-            val padX = w * 0.15f
-            val padY = h * 0.15f
-            val bboxW = (maxPx - minPx + padX * 2).coerceAtLeast(50f)
-            val bboxH = (maxPy - minPy + padY * 2).coerceAtLeast(50f)
-            targetCamZoom = min(w.toFloat() / bboxW, h.toFloat() / bboxH).coerceIn(0.9f, 5f)
-        }
-
-        // 3. Smooth camera lerp (factor 0.06 ≈ 300ms settle at 30fps, matching easeCamera)
-        val lerpFactor = 0.06f
-        camCenterX += (targetCamCenterX - camCenterX) * lerpFactor
-        camCenterY += (targetCamCenterY - camCenterY) * lerpFactor
-        camZoom    += (targetCamZoom    - camZoom)    * lerpFactor
-
-        // 4. Apply camera transform:
-        //    Translate so that camCenter lands at screen centre, then scale.
-        //    Transform: screen_xy = (map_xy - camCenter) * zoom + (w/2, h/2)
-        canvas.save()
-        canvas.translate(w / 2f, h / 2f)
-        canvas.scale(camZoom, camZoom)
-        canvas.translate(-camCenterX, -camCenterY)
-
-        // Draw map bitmap (in camera space)
-        if (scaledMap != null) canvas.drawBitmap(scaledMap, 0f, 0f, null)
-        else {
-            val bgPaint = Paint().apply { color = Color.parseColor(if (isDarkTheme) "#0A0A12" else "#F5F5F5") }
-            canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), bgPaint)
-        }
-
-        // Draw animated route (in camera space — same coordinate system)
-        drawRoutes(canvas, allRoutes, drawnCounts,
-            projMinLat, projMaxLat, projMinLon, projMaxLon, w, h)
-
-        canvas.restore() // back to screen space
-
-        // 5. Full-screen dark overlay (always covers entire screen, outside camera)
-        canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(),
-            Paint().apply { color = Color.parseColor("#80000000") })
-
-        // 6. Draw text overlays (screen-space, not affected by camera)
-        val step1Alpha = (frameIdx / 30f).coerceIn(0f, 1f)
-        val step1OffsetY = (1f - step1Alpha) * 40f
-        val step2Alpha = ((frameIdx - 30) / 30f).coerceIn(0f, 1f)
-        val step2OffsetY = (1f - step2Alpha) * 40f
-        val step3Alpha = ((frameIdx - 60) / 30f).coerceIn(0f, 1f)
-        val step3OffsetY = (1f - step3Alpha) * 40f
-
-        drawStoryOverlay(
-            canvas = canvas, recap = recap,
-            step1Alpha = step1Alpha, step1OffsetY = step1OffsetY,
-            step2Alpha = step2Alpha, step2OffsetY = step2OffsetY,
-            step3Alpha = step3Alpha, step3OffsetY = step3OffsetY,
-            w = w, h = h, isDarkTheme = isDarkTheme
-        )
-
-        frames.add(bmp)
-        onProgress((frameIdx + 1) / totalFrames.toFloat())
-    }
-
-    return frames
-}
-
-
-// ─── Canvas Drawing Primitives ────────────────────────────────────────────────
-
-private fun createFrame(w: Int, h: Int): Bitmap =
-    Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
-
-private fun drawBackground(canvas: Canvas, w: Int, h: Int, mapSnapshot: Bitmap?, isDarkTheme: Boolean) {
-    if (mapSnapshot != null) {
-        canvas.drawBitmap(mapSnapshot, 0f, 0f, null)
-    } else {
-        val bgPaint = Paint().apply { color = Color.parseColor(if (isDarkTheme) "#0A0A12" else "#F5F5F5") }
-        canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), bgPaint)
-    }
-}
-
-private fun drawStoryOverlay(
-    canvas: Canvas,
-    recap: TripRecap,
-    step1Alpha: Float, step1OffsetY: Float,
-    step2Alpha: Float, step2OffsetY: Float,
-    step3Alpha: Float, step3OffsetY: Float,
-    w: Int, h: Int, isDarkTheme: Boolean
-) {
-    val startX = 90f
-
-    // Step 1: Period Title & "You were unstoppable."
-    if (step1Alpha > 0f) {
-        val a1 = (step1Alpha * 255).toInt().coerceIn(0, 255)
-        val titlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.WHITE; this.alpha = a1
-            textSize = 76f; typeface = Typeface.create(Typeface.DEFAULT_BOLD, Typeface.BOLD)
-            textAlign = Paint.Align.LEFT
-        }
-        val subPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.WHITE; this.alpha = (a1 * 0.9f).toInt()
-            textSize = 40f; typeface = Typeface.DEFAULT
-            textAlign = Paint.Align.LEFT
-        }
-        canvas.drawText(recap.periodName, startX, 680f + step1OffsetY, titlePaint)
-        canvas.drawText("You were unstoppable.", startX, 745f + step1OffsetY, subPaint)
-    }
-
-    // Step 2: DISTANCE & value
-    if (step2Alpha > 0f) {
-        val a2 = (step2Alpha * 255).toInt().coerceIn(0, 255)
-        val distLabelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.parseColor("#FF6D00"); this.alpha = a2
-            textSize = 34f; typeface = Typeface.create(Typeface.DEFAULT_BOLD, Typeface.BOLD)
-            letterSpacing = 0.1f; textAlign = Paint.Align.LEFT
-        }
-        val distValPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.WHITE; this.alpha = a2
-            textSize = 96f; typeface = Typeface.create(Typeface.DEFAULT_BOLD, Typeface.BOLD)
-            textAlign = Paint.Align.LEFT
-        }
-        canvas.drawText("DISTANCE", startX, 900f + step2OffsetY, distLabelPaint)
-        canvas.drawText("${"%.1f".format(recap.totalDistance / 1000)} km", startX, 1010f + step2OffsetY, distValPaint)
-    }
-
-    // Step 3: TRIPS & MAX SPEED
-    if (step3Alpha > 0f) {
-        val a3 = (step3Alpha * 255).toInt().coerceIn(0, 255)
-        val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.parseColor(if (isDarkTheme) "#808080" else "#B3B3B3"); this.alpha = a3
-            textSize = 34f; typeface = Typeface.create(Typeface.DEFAULT_BOLD, Typeface.BOLD)
-            letterSpacing = 0.1f; textAlign = Paint.Align.LEFT
-        }
-        val valPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.WHITE; this.alpha = a3
-            textSize = 68f; typeface = Typeface.create(Typeface.DEFAULT_BOLD, Typeface.BOLD)
-            textAlign = Paint.Align.LEFT
-        }
-
-        // Column 1: TRIPS
-        canvas.drawText("TRIPS", startX, 1160f + step3OffsetY, labelPaint)
-        canvas.drawText("${recap.totalTrips}", startX, 1245f + step3OffsetY, valPaint)
-
-        // Column 2: MAX SPEED
-        val col2X = w * 0.52f
-        canvas.drawText("MAX SPEED", col2X, 1160f + step3OffsetY, labelPaint)
-        canvas.drawText("${"%.0f".format(recap.maxSpeed)} km/h", col2X, 1245f + step3OffsetY, valPaint)
-    }
-}
-
-private fun drawRoutes(
-    canvas: Canvas,
-    allRoutes: List<List<RoutePoint>>,
-    drawnCounts: IntArray,
-    minLat: Double, maxLat: Double,
-    minLon: Double, maxLon: Double,
-    w: Int, h: Int
-) {
-    if (minLat == Double.MAX_VALUE) return
-
-    // ── Web Mercator projection (matches MapLibre / Carto tiles exactly) ──────
-    // MapLibre uses EPSG:3857 (Web Mercator). To overlay routes on the snapshot
-    // we must use the same projection, otherwise latitude lines shift non-linearly.
-    fun mercatorY(latDeg: Double): Double {
-        val latRad = Math.toRadians(latDeg.coerceIn(-85.05, 85.05))
-        return Math.log(Math.tan(Math.PI / 4.0 + latRad / 2.0))
-    }
-
-    val mTop    = mercatorY(maxLat)
-    val mBottom = mercatorY(minLat)
-    val mSpan   = mTop - mBottom
-    val lonSpan = maxLon - minLon
-
-    // Map geographic coordinates to pixel space
-    fun lngToX(lon: Double): Float = ((lon - minLon) / lonSpan * w).toFloat()
-    fun latToY(lat: Double): Float  = ((mTop - mercatorY(lat)) / mSpan * h).toFloat()
-
-    // Active: draw animated portion of each route
-    val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+    // ── Pre-allocated drawing paints and strings ──
+    val overlayPaints = StoryOverlayPaints(isDarkTheme)
+    val bgPaint = Paint().apply { color = Color.parseColor(if (isDarkTheme) "#0A0A12" else "#F5F5F5") }
+    val darkOverlayPaint = Paint().apply { color = Color.parseColor("#80000000") }
+    val routeLinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.parseColor("#FF6D00"); style = Paint.Style.STROKE
         strokeWidth = 10f; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND
     }
-    allRoutes.forEachIndexed { idx, r ->
-        val count = drawnCounts.getOrNull(idx)?.coerceAtMost(r.size) ?: 0
-        if (count < 2) return@forEachIndexed
-        val path = Path()
-        for (pi in 0 until count) {
-            val p = r[pi]
-            val x = lngToX(p.longitude); val y = latToY(p.latitude)
-            if (pi == 0) path.moveTo(x, y) else path.lineTo(x, y)
-        }
-        canvas.drawPath(path, linePaint)
-    }
-}
+    val reusableRoutePath = Path()
+    val distFormatted = "${"%.1f".format(recap.totalDistance / 1000)} km"
+    val maxSpeedFormatted = "${"%.0f".format(recap.maxSpeed)} km/h"
 
-// ─── Video Encoder ────────────────────────────────────────────────────────────
+    // ── Single reusable bitmap buffer (allocates once, avoids 3.7GB OOM) ──
+    val renderBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+    val renderCanvas = Canvas(renderBitmap)
 
-private const val MIME_TYPE = "video/avc"
-private const val BIT_RATE = 8_000_000 // 8 Mbps
-private const val I_FRAME_INTERVAL = 1
-
-private fun encodeFramesToMp4(
-    frames: List<Bitmap>,
-    outputPath: String,
-    width: Int,
-    height: Int,
-    fps: Int,
-    onProgress: (Float) -> Unit
-) {
+    // ── MediaCodec & MediaMuxer setup ──
     val format = MediaFormat.createVideoFormat(MIME_TYPE, width, height).apply {
         setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface)
         setInteger(MediaFormat.KEY_BIT_RATE, BIT_RATE)
@@ -567,11 +453,96 @@ private fun encodeFramesToMp4(
     val bufferInfo = MediaCodec.BufferInfo()
 
     try {
-        frames.forEachIndexed { frameIdx, bitmap ->
-            // Draw bitmap onto the encoder surface
-            val canvas = surface.lockCanvas(null)
-            canvas.drawBitmap(bitmap, 0f, 0f, null)
-            surface.unlockCanvasAndPost(canvas)
+        for (frameIdx in 0 until totalFrames) {
+            // 1. Update drawn route progress (12s / 360 frames)
+            val routeProgress = (frameIdx.toFloat() / 360f).coerceAtMost(1f)
+            if (allPoints.isNotEmpty()) {
+                val targetIdx = (routeProgress * (allPoints.size - 1)).toInt().coerceIn(0, allPoints.size - 1)
+                for (i in 0..targetIdx) {
+                    val ap = allPoints[i]
+                    if (drawnCounts[ap.routeIdx] <= ap.pointIdx) drawnCounts[ap.routeIdx] = ap.pointIdx + 1
+                }
+            }
+
+            // 2. Target camera bounding box
+            var minPx = Float.MAX_VALUE; var maxPx = -Float.MAX_VALUE
+            var minPy = Float.MAX_VALUE; var maxPy = -Float.MAX_VALUE
+            var hasDrawn = false
+            allRoutes.forEachIndexed { idx, route ->
+                val count = drawnCounts[idx].coerceAtMost(route.size)
+                for (pi in 0 until count) {
+                    val p  = route[pi]
+                    val px = lngToX(p.longitude)
+                    val py = latToY(p.latitude)
+                    if (px < minPx) minPx = px; if (px > maxPx) maxPx = px
+                    if (py < minPy) minPy = py; if (py > maxPy) maxPy = py
+                    hasDrawn = true
+                }
+            }
+
+            val targetCamCenterX: Float
+            val targetCamCenterY: Float
+            val targetCamZoom: Float
+
+            if (!hasDrawn) {
+                targetCamCenterX = camCenterX
+                targetCamCenterY = camCenterY
+                targetCamZoom    = camZoom
+            } else {
+                targetCamCenterX = (minPx + maxPx) / 2f
+                targetCamCenterY = (minPy + maxPy) / 2f
+                val padX = width * 0.15f
+                val padY = height * 0.15f
+                val bboxW = (maxPx - minPx + padX * 2).coerceAtLeast(50f)
+                val bboxH = (maxPy - minPy + padY * 2).coerceAtLeast(50f)
+                targetCamZoom = min(width.toFloat() / bboxW, height.toFloat() / bboxH).coerceIn(0.9f, 5f)
+            }
+
+            // 3. Smooth camera lerp
+            val lerpFactor = 0.06f
+            camCenterX += (targetCamCenterX - camCenterX) * lerpFactor
+            camCenterY += (targetCamCenterY - camCenterY) * lerpFactor
+            camZoom    += (targetCamZoom    - camZoom)    * lerpFactor
+
+            // 4. Render into single reusable bitmap
+            renderCanvas.save()
+            renderCanvas.translate(width / 2f, height / 2f)
+            renderCanvas.scale(camZoom, camZoom)
+            renderCanvas.translate(-camCenterX, -camCenterY)
+
+            if (scaledMap != null) {
+                renderCanvas.drawBitmap(scaledMap, 0f, 0f, null)
+            } else {
+                renderCanvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), bgPaint)
+            }
+
+            drawRoutes(renderCanvas, allRoutes, drawnCounts, routeLinePaint, reusableRoutePath, ::lngToX, ::latToY)
+            renderCanvas.restore()
+
+            // 5. Dark overlay
+            renderCanvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), darkOverlayPaint)
+
+            // 6. Text overlays
+            val step1Alpha = (frameIdx / 30f).coerceIn(0f, 1f)
+            val step1OffsetY = (1f - step1Alpha) * 40f
+            val step2Alpha = ((frameIdx - 30) / 30f).coerceIn(0f, 1f)
+            val step2OffsetY = (1f - step2Alpha) * 40f
+            val step3Alpha = ((frameIdx - 60) / 30f).coerceIn(0f, 1f)
+            val step3OffsetY = (1f - step3Alpha) * 40f
+
+            drawStoryOverlay(
+                canvas = renderCanvas, recap = recap, paints = overlayPaints,
+                distFormatted = distFormatted, maxSpeedFormatted = maxSpeedFormatted,
+                step1Alpha = step1Alpha, step1OffsetY = step1OffsetY,
+                step2Alpha = step2Alpha, step2OffsetY = step2OffsetY,
+                step3Alpha = step3Alpha, step3OffsetY = step3OffsetY,
+                w = width, h = height
+            )
+
+            // 7. Write rendered frame directly to encoder surface
+            val surfaceCanvas = surface.lockCanvas(null)
+            surfaceCanvas.drawBitmap(renderBitmap, 0f, 0f, null)
+            surface.unlockCanvasAndPost(surfaceCanvas)
 
             // Drain encoder
             drainEncoder(encoder, muxer, bufferInfo, { ti ->
@@ -580,13 +551,15 @@ private fun encodeFramesToMp4(
             }, muxerStarted, trackIdx, presentationUs, false)
 
             presentationUs += intervalUs
-            onProgress((frameIdx + 1).toFloat() / frames.size)
+            onProgress((frameIdx + 1).toFloat() / totalFrames)
         }
 
         // Signal end of stream
         encoder.signalEndOfInputStream()
         drainEncoder(encoder, muxer, bufferInfo, { }, muxerStarted, trackIdx, presentationUs, true)
     } finally {
+        renderBitmap.recycle()
+        scaledMap?.recycle()
         encoder.stop()
         encoder.release()
         surface.release()

@@ -54,6 +54,7 @@ import com.myapp.motrava.presentation.trip.TripDetailScreen
 import com.myapp.motrava.presentation.vehicle.AddVehicleScreen
 import com.myapp.motrava.presentation.recap.RecapScreen
 import com.myapp.motrava.presentation.recap.RecapStoryScreen
+import com.myapp.motrava.presentation.components.CurvedBottomNavBar
 import com.myapp.motrava.presentation.theme.*
 
 sealed class Screen(val route: String, val title: String, val icon: ImageVector? = null) {
@@ -102,10 +103,12 @@ fun MotravaApp(isDarkMode: Boolean, onThemeToggle: () -> Unit) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
     val currentRoute = currentDestination?.route
+    val isFullscreenStory = currentRoute?.startsWith("recap_story") == true
 
     val showShell = currentRoute != Screen.Splash.route &&
             currentRoute != Screen.Login.route &&
             currentRoute != Screen.Register.route &&
+            !isFullscreenStory &&
             isLoggedIn
 
     LaunchedEffect(Unit) {
@@ -172,43 +175,34 @@ fun MotravaApp(isDarkMode: Boolean, onThemeToggle: () -> Unit) {
         },
         bottomBar = {
             AnimatedVisibility(
-                visible = showShell,
+                visible = showShell && bottomNavItems.any { it.route == currentRoute },
                 enter = fadeIn(),
                 exit = fadeOut()
             ) {
-                NavigationBar {
-                    bottomNavItems.forEach { screen ->
-                        val isSelected = currentRoute == screen.route
-                        NavigationBarItem(
-                            icon = { Icon(screen.icon!!, contentDescription = screen.title) },
-                            label = { Text(screen.title) },
-                            selected = isSelected,
-                            colors = NavigationBarItemDefaults.colors(
-                                indicatorColor = MaterialTheme.colorScheme.primaryContainer,
-                                selectedIconColor = MaterialTheme.colorScheme.primary,
-                                selectedTextColor = MaterialTheme.colorScheme.primary,
-                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
-                            ),
-                            onClick = {
-                                navController.navigate(screen.route) {
-                                    popUpTo(navController.graph.findStartDestination().id) {
-                                        saveState = true
-                                    }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
+                CurvedBottomNavBar(
+                    items = bottomNavItems,
+                    currentRoute = currentRoute,
+                    onItemClick = { screen ->
+                        navController.navigate(screen.route) {
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                saveState = true
                             }
-                        )
+                            launchSingleTop = true
+                            restoreState = true
+                        }
                     }
-                }
+                )
             }
         }
     ) { innerPadding ->
         NavHost(
             navController = navController,
             startDestination = startDest,
-            modifier = Modifier.padding(innerPadding)
+            // Exclude bottom padding so content extends behind the semi-transparent floating navbar
+            modifier = Modifier.padding(
+                if (isFullscreenStory) PaddingValues(0.dp)
+                else PaddingValues(top = innerPadding.calculateTopPadding(), start = innerPadding.calculateStartPadding(androidx.compose.ui.unit.LayoutDirection.Ltr), end = innerPadding.calculateEndPadding(androidx.compose.ui.unit.LayoutDirection.Ltr))
+            )
         ) {
             composable(Screen.Splash.route) {
                 SplashScreen(

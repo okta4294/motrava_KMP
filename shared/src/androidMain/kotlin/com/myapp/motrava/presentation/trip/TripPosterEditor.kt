@@ -295,7 +295,7 @@ actual fun PosterEditorDialog(
                                 isLightMode = selectedImageUri == null && !isTransparentBg && stickerFormat == 4,
                                 showManualRoute = true,
                                 liveMapSnapshot = if (stickerFormat == 4) liveMapSnapshot?.asAndroidBitmap() else null,
-                                modifier = Modifier
+                                modifier = if (stickerFormat == 4) Modifier.fillMaxSize() else Modifier
                                     .offset { IntOffset(offsetX.roundToInt(), offsetY.roundToInt()) }
                                     .scale(scale)
                             )
@@ -346,7 +346,12 @@ actual fun PosterEditorDialog(
                         Spacer(modifier = Modifier.width(6.dp))
                         FilterChip(
                             selected = stickerFormat == 4,
-                            onClick = { stickerFormat = 4 },
+                            onClick = {
+                                stickerFormat = 4
+                                offsetX = 0f
+                                offsetY = 0f
+                                scale = 1f
+                            },
                             label = { Text("Full Maps", fontSize = 11.sp) },
                             colors = FilterChipDefaults.filterChipColors(selectedContainerColor = AccentPeach, selectedLabelColor = Color.White)
                         )
@@ -431,46 +436,9 @@ fun TripStickerPreview(
     modifier: Modifier = Modifier
 ) {
 
-    val containerModifier = if (stickerStyle == 1) {
-        modifier
-            .width(270.dp)
-            .clip(RoundedCornerShape(18.dp))
-            .background(Color.Black.copy(alpha = 0.65f))
-            .border(1.dp, Color.White.copy(alpha = 0.25f), RoundedCornerShape(18.dp))
-            .padding(14.dp)
-    } else {
-        modifier
-            .width(270.dp)
-            .padding(8.dp)
-    }
-
     if (stickerFormat == 4) {
-        // Full Maps Style Preview - full 9:16 ratio
-        Box(
-            modifier = modifier
-                .fillMaxWidth()
-                .aspectRatio(9f / 16f)
-                .background(Color(0xFFF0F2F5))
-                .clip(RoundedCornerShape(12.dp))
-        ) {
-            liveMapSnapshot?.let { bmp ->
-                androidx.compose.foundation.Image(
-                    bitmap = bmp.asImageBitmap(),
-                    contentDescription = "Map Background",
-                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
-            }
-            
-            // Always draw gradient so white text is readable (even if snapshot fails/is loading)
-            Box(
-                modifier = Modifier.fillMaxSize().background(
-                    androidx.compose.ui.graphics.Brush.verticalGradient(
-                        colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.85f)),
-                        startY = 700f
-                    )
-                )
-            )
+        // Full Maps Style Preview - pinned brand and bottom stats overlay
+        Box(modifier = modifier.fillMaxSize()) {
             // MOTRAVA label - orange, top right
             Text(
                 text = "M O T R A V A",
@@ -482,12 +450,13 @@ fun TripStickerPreview(
                     .align(Alignment.TopEnd)
                     .padding(top = 16.dp, end = 16.dp)
             )
-            
-            // (Route is now drawn natively by MapLibre inside liveMapSnapshot, so we don't need manual Canvas drawing here)
 
             // Full Maps Bottom Stats Overlay
             Column(
-                modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(16.dp)
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .fillMaxWidth()
+                    .padding(16.dp)
             ) {
                 Text(text = posterData.subtitle.uppercase(), fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
                 Spacer(modifier = Modifier.height(8.dp))
@@ -509,6 +478,18 @@ fun TripStickerPreview(
             }
         }
     } else {
+        val containerModifier = if (stickerStyle == 1) {
+            modifier
+                .width(if (stickerFormat == 3) 220.dp else 270.dp)
+                .clip(RoundedCornerShape(18.dp))
+                .background(Color.Black.copy(alpha = 0.65f))
+                .border(1.dp, Color.White.copy(alpha = 0.25f), RoundedCornerShape(18.dp))
+                .padding(14.dp)
+        } else {
+            modifier
+                .width(if (stickerFormat == 3) 220.dp else 270.dp)
+                .padding(8.dp)
+        }
         Column(
             modifier = containerModifier,
             horizontalAlignment = Alignment.CenterHorizontally
@@ -677,6 +658,9 @@ private suspend fun exportEditedTripPoster(
                     val left = (1080 - scaledW) / 2f
                     val top = (1920 - scaledH) / 2f
                     canvas.drawBitmap(scaledBmp, left, top, null)
+                    if (scaledBmp != srcBmp) scaledBmp.recycle()
+                    srcBmp.recycle()
+                    if (srcBmpRaw != null && srcBmpRaw != srcBmp) srcBmpRaw.recycle()
                 } else {
                     canvas.drawColor(if (isLightMode) android.graphics.Color.parseColor("#F0F2F5") else android.graphics.Color.parseColor("#1A1C24"))
                 }
@@ -695,6 +679,7 @@ private suspend fun exportEditedTripPoster(
             val left = (1080 - scaledW) / 2f
             val top = (1920 - scaledH) / 2f
             canvas.drawBitmap(scaledBmp, left, top, null)
+            if (scaledBmp != liveMapSnapshot) scaledBmp.recycle()
             
             // Add dark gradient at the bottom so white text is readable on light maps
             val gradientPaint = Paint().apply {
@@ -717,19 +702,24 @@ private suspend fun exportEditedTripPoster(
             }
         }
 
-        if (!isTransparentBg && !isLightMode) {
-            canvas.drawColor(android.graphics.Color.parseColor("#33000000"))
+        if (imageUri != null && !isTransparentBg) {
+            // Match preview: 25% black tint only over custom user photo
+            canvas.drawColor(android.graphics.Color.parseColor("#40000000"))
         }
 
-        // 2. Draw Sticker at Custom Position & Scale (Standard 1x scale for Full HD canvas)
-        val centerX = 540f + (relX * 1080f)
-        val centerY = 960f + (relY * 1920f)
-        canvas.save()
-        canvas.translate(centerX, centerY)
-        canvas.scale(scale, scale)
-        val isFullMapBackground = liveMapSnapshot != null && stickerFormat == 4 && imageUri == null && !isTransparentBg
-        drawTripStickerOnCanvas(canvas, posterData, stickerStyle, stickerFormat, isLightMode, true)
-        canvas.restore()
+        if (stickerFormat == 4) {
+            // Full Maps: Draw overlay directly pinned to 1080x1920 canvas without offset/scale distortion
+            drawFullMapsOverlay(canvas, posterData)
+        } else {
+            // 2. Draw Sticker at Custom Position & Scale (Standard 1x scale for Full HD canvas)
+            val centerX = 540f + (relX * 1080f)
+            val centerY = 960f + (relY * 1920f)
+            canvas.save()
+            canvas.translate(centerX, centerY)
+            canvas.scale(scale, scale)
+            drawTripStickerOnCanvas(canvas, posterData, stickerStyle, stickerFormat, isLightMode, true)
+            canvas.restore()
+        }
 
         // 3. Save to MediaStore
         val filename = "motrava_poster_${System.currentTimeMillis()}.png"
@@ -779,20 +769,23 @@ private fun drawTripStickerOnCanvas(canvas: Canvas, posterData: PosterData, stic
     }
 
     if (stickerStyle == 1) {
-        val cardRect = if (stickerFormat == 3) RectF(-360f, -360f, 360f, 360f) else RectF(-480f, -440f, 480f, 440f)
-        val cardPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = android.graphics.Color.parseColor("#B3000000")
+        val cardRect = when (stickerFormat) {
+            3 -> RectF(-380f, -280f, 380f, 280f)
+            2 -> RectF(-480f, -240f, 480f, 240f)
+            else -> RectF(-480f, -440f, 480f, 440f)
         }
-        canvas.drawRoundRect(cardRect, 60f, 60f, cardPaint)
+        val cardPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = android.graphics.Color.parseColor("#A6000000") // 65% black, exact match with preview
+        }
+        canvas.drawRoundRect(cardRect, 64f, 64f, cardPaint)
         val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = android.graphics.Color.parseColor("#40FFFFFF")
+            color = android.graphics.Color.parseColor("#40FFFFFF") // 25% white border
             style = Paint.Style.STROKE
             strokeWidth = 4f
         }
-        canvas.drawRoundRect(cardRect, 60f, 60f, borderPaint)
+        canvas.drawRoundRect(cardRect, 64f, 64f, borderPaint)
     }
 
-    // ponytail: removed all setShadowLayer calls for crisp vector typography without background blur/shadows
     val motravaHeaderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = android.graphics.Color.parseColor("#E0E5F5")
         textSize = 34f
@@ -823,130 +816,147 @@ private fun drawTripStickerOnCanvas(canvas: Canvas, posterData: PosterData, stic
         textSize = 40f
         typeface = semiBoldTypeface
         textAlign = Paint.Align.CENTER
-        letterSpacing = 0.15f
+        letterSpacing = 0.05f
     }
 
-    // (Moved to posterData fields)
+    if (stickerFormat != 3) {
+        val headerY = if (stickerFormat == 2) -140f else -330f
+        val titleY = if (stickerFormat == 2) -70f else -255f
+        canvas.drawText(posterData.title, 0f, headerY, motravaHeaderPaint)
+        canvas.drawText(posterData.subtitle.uppercase(), 0f, titleY, titlePaint)
 
-    if (stickerFormat == 4) {
-        // Strava Style Export
-        // Note: The route is already baked into the liveMapSnapshot natively by MapLibre/Mapbox.
-        // We only draw the route manually if we are NOT using the Full Maps format, or if for some reason the map background is absent.
-        // But since Full Maps requires the map background to be drawn in the container above, the route is already there.
-
-        val leftAlign = -460f
-        val titleLeftPaint = Paint(titlePaint).apply { textAlign = Paint.Align.LEFT }
-        val labelLeftPaint = Paint(labelPaint).apply { textAlign = Paint.Align.LEFT }
-        val valueLeftPaint = Paint(valuePaint).apply { textAlign = Paint.Align.LEFT }
-        val brandRightPaint = Paint(valuePaint).apply { textAlign = Paint.Align.RIGHT; color = android.graphics.Color.parseColor("#FF6D00"); typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT_BOLD, android.graphics.Typeface.BOLD); letterSpacing = 0.2f }
-
-        // MOTRAVA at top-right with orange color
-        canvas.drawText("MOTRAVA", 460f, -860f, brandRightPaint)
-        
-        // Stats at bottom-left
-        canvas.drawText(posterData.subtitle.uppercase(), leftAlign, 560f, titleLeftPaint)
-        
-        canvas.drawText(posterData.stat3Label, leftAlign, 660f, labelLeftPaint)
-        canvas.drawText(posterData.stat3Value, leftAlign, 720f, valueLeftPaint)
-        
-        canvas.drawText(posterData.stat2Label, -100f, 660f, labelLeftPaint)
-        canvas.drawText(posterData.stat2Value, -100f, 720f, valueLeftPaint)
-        
-        canvas.drawText(posterData.stat1Label, leftAlign, 820f, labelLeftPaint)
-        canvas.drawText(posterData.stat1Value, leftAlign, 880f, valueLeftPaint)
-    } else {
-        if (stickerFormat != 3) {
-            val headerY = if (stickerFormat == 2) -140f else -330f
-            val titleY = if (stickerFormat == 2) -65f else -255f
-            canvas.drawText(posterData.title, 0f, headerY, motravaHeaderPaint)
-            canvas.drawText(posterData.subtitle.uppercase(), 0f, titleY, titlePaint)
-
-            if (stickerFormat == 1) {
-                // 2 Baris / Piramida
-                canvas.drawText(posterData.stat1Label, -260f, -140f, labelPaint)
-                canvas.drawText(posterData.stat1Value, -260f, -75f, valuePaint)
-                canvas.drawText(posterData.stat2Label, 260f, -140f, labelPaint)
-                canvas.drawText(posterData.stat2Value, 260f, -75f, valuePaint)
-                canvas.drawText(posterData.stat3Label, 0f, -10f, labelPaint)
-                canvas.drawText(posterData.stat3Value, 0f, 55f, valuePaint)
-            } else {
-                // 3 Kolom / Sejajar (Format 0 & 2)
-                val statLabelY = if (stickerFormat == 2) 50f else -140f
-                val statValueY = if (stickerFormat == 2) 115f else -75f
-                canvas.drawText(posterData.stat1Label, -350f, statLabelY, labelPaint)
-                canvas.drawText(posterData.stat1Value, -350f, statValueY, valuePaint)
-                canvas.drawText(posterData.stat3Label, 0f, statLabelY, labelPaint)
-                canvas.drawText(posterData.stat3Value, 0f, statValueY, valuePaint)
-                canvas.drawText(posterData.stat2Label, 350f, statLabelY, labelPaint)
-                canvas.drawText(posterData.stat2Value, 350f, statValueY, valuePaint)
-            }
+        if (stickerFormat == 1) {
+            // 2 Baris / Piramida
+            canvas.drawText(posterData.stat1Label, -260f, -140f, labelPaint)
+            canvas.drawText(posterData.stat1Value, -260f, -75f, valuePaint)
+            canvas.drawText(posterData.stat2Label, 260f, -140f, labelPaint)
+            canvas.drawText(posterData.stat2Value, 260f, -75f, valuePaint)
+            canvas.drawText(posterData.stat3Label, 0f, -10f, labelPaint)
+            canvas.drawText(posterData.stat3Value, 0f, 55f, valuePaint)
+        } else {
+            // 3 Kolom / Sejajar (Format 0 & 2)
+            val statLabelY = if (stickerFormat == 2) 20f else -140f
+            val statValueY = if (stickerFormat == 2) 80f else -75f
+            canvas.drawText(posterData.stat1Label, -350f, statLabelY, labelPaint)
+            canvas.drawText(posterData.stat1Value, -350f, statValueY, valuePaint)
+            canvas.drawText(posterData.stat3Label, 0f, statLabelY, labelPaint)
+            canvas.drawText(posterData.stat3Value, 0f, statValueY, valuePaint)
+            canvas.drawText(posterData.stat2Label, 350f, statLabelY, labelPaint)
+            canvas.drawText(posterData.stat2Value, 350f, statValueY, valuePaint)
         }
+    }
 
-        if (stickerFormat != 2) {
-            val allRoutes = posterData.multiRoutes ?: (posterData.route?.let { listOf(it) } ?: emptyList())
-            if (showManualRoute && allRoutes.isNotEmpty()) {
-                var minLat = Double.MAX_VALUE; var maxLat = -Double.MAX_VALUE
-                var minLon = Double.MAX_VALUE; var maxLon = -Double.MAX_VALUE
-                for (r in allRoutes) {
-                    for (p in r) {
-                        if (p.latitude < minLat) minLat = p.latitude
-                        if (p.latitude > maxLat) maxLat = p.latitude
-                        if (p.longitude < minLon) minLon = p.longitude
-                        if (p.longitude > maxLon) maxLon = p.longitude
+    if (stickerFormat != 2) {
+        val allRoutes = posterData.multiRoutes ?: (posterData.route?.let { listOf(it) } ?: emptyList())
+        if (showManualRoute && allRoutes.isNotEmpty()) {
+            var minLat = Double.MAX_VALUE; var maxLat = -Double.MAX_VALUE
+            var minLon = Double.MAX_VALUE; var maxLon = -Double.MAX_VALUE
+            for (r in allRoutes) {
+                for (p in r) {
+                    if (p.latitude < minLat) minLat = p.latitude
+                    if (p.latitude > maxLat) maxLat = p.latitude
+                    if (p.longitude < minLon) minLon = p.longitude
+                    if (p.longitude > maxLon) maxLon = p.longitude
+                }
+            }
+
+            val boxLeft = if (stickerFormat == 3) -320f else -380f
+            val boxRight = if (stickerFormat == 3) 320f else 380f
+            val boxTop = when (stickerFormat) {
+                3 -> -220f
+                1 -> 95f
+                else -> 15f
+            }
+            val boxBottom = when (stickerFormat) {
+                3 -> 160f
+                1 -> 310f
+                else -> 275f
+            }
+            val boxW = boxRight - boxLeft
+            val boxH = boxBottom - boxTop
+
+            val latSpan = maxLat - minLat
+            val lonSpan = maxLon - minLon
+            val scaleFactor = if (latSpan == 0.0 || lonSpan == 0.0) 1f else {
+                kotlin.math.min(boxW / lonSpan, boxH / latSpan).toFloat() * 0.85f
+            }
+
+            val centerLat = (minLat + maxLat) / 2.0
+            val centerLon = (minLon + maxLon) / 2.0
+            val boxCenterX = (boxLeft + boxRight) / 2f
+            val boxCenterY = (boxTop + boxBottom) / 2f
+
+            // ponytail: clean solid vector line matching 3dp preview line weight
+            val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = android.graphics.Color.parseColor("#FF6D00")
+                style = Paint.Style.STROKE
+                strokeWidth = 11f
+                strokeCap = Paint.Cap.ROUND
+                strokeJoin = Paint.Join.ROUND
+            }
+
+            for (r in allRoutes) {
+                if (r.size >= 2) {
+                    val path = Path()
+                    r.forEachIndexed { idx, p ->
+                        val x = boxCenterX + ((p.longitude - centerLon) * scaleFactor).toFloat()
+                        val y = boxCenterY - ((p.latitude - centerLat) * scaleFactor).toFloat()
+                        if (idx == 0) path.moveTo(x, y) else path.lineTo(x, y)
                     }
-                }
-
-                val boxLeft = -380f
-                val boxRight = 380f
-                val boxTop = when (stickerFormat) {
-                    3 -> -260f // Rute Saja
-                    1 -> 95f   // 2 Baris + Rute
-                    else -> 15f // 3 Kolom + Rute
-                }
-                val boxBottom = when (stickerFormat) {
-                    3 -> 260f
-                    1 -> 310f
-                    else -> 275f
-                }
-                val boxW = boxRight - boxLeft
-                val boxH = boxBottom - boxTop
-
-                val latSpan = maxLat - minLat
-                val lonSpan = maxLon - minLon
-                val scaleFactor = if (latSpan == 0.0 || lonSpan == 0.0) 1f else {
-                    kotlin.math.min(boxW / lonSpan, boxH / latSpan).toFloat() * 0.85f
-                }
-
-                val centerLat = (minLat + maxLat) / 2.0
-                val centerLon = (minLon + maxLon) / 2.0
-                val boxCenterX = (boxLeft + boxRight) / 2f
-                val boxCenterY = (boxTop + boxBottom) / 2f
-
-                // ponytail: clean solid vector line without blurry glow or shadow for maximum HD sharpness
-                val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                    color = android.graphics.Color.parseColor("#FF6D00")
-                    style = Paint.Style.STROKE
-                    strokeWidth = 8f
-                    strokeCap = Paint.Cap.ROUND
-                    strokeJoin = Paint.Join.ROUND
-                }
-                
-                for (r in allRoutes) {
-                    if (r.size >= 2) {
-                        val path = Path()
-                        r.forEachIndexed { idx, p ->
-                            val x = boxCenterX + ((p.longitude - centerLon) * scaleFactor).toFloat()
-                            val y = boxCenterY - ((p.latitude - centerLat) * scaleFactor).toFloat()
-                            if (idx == 0) path.moveTo(x, y) else path.lineTo(x, y)
-                        }
-                        canvas.drawPath(path, linePaint)
-                    }
+                    canvas.drawPath(path, linePaint)
                 }
             }
         }
-
-        val footerY = if (stickerFormat == 2) 230f else 360f
-        canvas.drawText("M O T R A V A", 0f, footerY, brandPaint)
     }
 
+    val footerY = when (stickerFormat) {
+        3 -> 220f
+        2 -> 180f
+        else -> 360f
+    }
+    canvas.drawText("M O T R A V A", 0f, footerY, brandPaint)
+}
+
+private fun drawFullMapsOverlay(canvas: Canvas, posterData: PosterData) {
+    val titlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = android.graphics.Color.WHITE
+        textSize = 54f
+        typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT_BOLD, android.graphics.Typeface.BOLD)
+        textAlign = Paint.Align.LEFT
+    }
+    val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = android.graphics.Color.parseColor("#E0E5F5")
+        textSize = 30f
+        typeface = android.graphics.Typeface.DEFAULT
+        textAlign = Paint.Align.LEFT
+    }
+    val valuePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = android.graphics.Color.WHITE
+        textSize = 44f
+        typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT_BOLD, android.graphics.Typeface.BOLD)
+        textAlign = Paint.Align.LEFT
+    }
+    val brandRightPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        textAlign = Paint.Align.RIGHT
+        color = android.graphics.Color.parseColor("#FF6D00")
+        textSize = 42f
+        typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT_BOLD, android.graphics.Typeface.BOLD)
+        letterSpacing = 0.08f
+    }
+
+    // Top-Right brand (margin ~60px from top and right)
+    canvas.drawText("M O T R A V A", 1080f - 60f, 95f, brandRightPaint)
+
+    // Bottom-Left stats (margin ~64px from left, pinned above bottom edge)
+    val leftMargin = 64f
+    canvas.drawText(posterData.subtitle.uppercase(), leftMargin, 1600f, titlePaint)
+
+    canvas.drawText(posterData.stat3Label, leftMargin, 1690f, labelPaint)
+    canvas.drawText(posterData.stat3Value, leftMargin, 1745f, valuePaint)
+
+    canvas.drawText(posterData.stat2Label, leftMargin + 320f, 1690f, labelPaint)
+    canvas.drawText(posterData.stat2Value, leftMargin + 320f, 1745f, valuePaint)
+
+    canvas.drawText(posterData.stat1Label, leftMargin, 1815f, labelPaint)
+    canvas.drawText(posterData.stat1Value, leftMargin, 1865f, valuePaint)
 }
