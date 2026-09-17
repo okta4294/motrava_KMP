@@ -15,7 +15,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import com.myapp.motrava.data.remote.dto.TripDetailData
 import com.myapp.motrava.presentation.theme.GradientPurple
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
@@ -27,8 +26,8 @@ import platform.UIKit.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-actual fun TripPosterEditorDialog(
-    trip: TripDetailData,
+actual fun PosterEditorDialog(
+    posterData: PosterData,
     initialIsTransparentBg: Boolean,
     liveMapSnapshot: ImageBitmap?,
     onDismiss: () -> Unit
@@ -58,7 +57,7 @@ actual fun TripPosterEditorDialog(
                         onClick = {
                             isSaving = true
                             coroutineScope.launch {
-                                exportTripPosterIos(trip)
+                                exportTripPosterIos(posterData)
                                 isSaving = false
                                 onDismiss()
                             }
@@ -85,7 +84,7 @@ actual fun TripPosterEditorDialog(
     }
 }
 
-private suspend fun exportTripPosterIos(trip: TripDetailData) = withContext(Dispatchers.IO) {
+private suspend fun exportTripPosterIos(posterData: PosterData) = withContext(Dispatchers.IO) {
     val width = 1080.0
     val height = 1920.0
     val size = CGSizeMake(width, height)
@@ -98,7 +97,7 @@ private suspend fun exportTripPosterIos(trip: TripDetailData) = withContext(Disp
     CGContextFillRect(context, CGRectMake(0.0, 0.0, width, height))
     
     // Draw simple text using CoreGraphics
-    val text = "MOTRAVA ACTIVITY: ${trip.vehicleName ?: "RIDE"}"
+    val text = "MOTRAVA ACTIVITY: ${posterData.vehicleName.ifEmpty { "RIDE" }}"
     // (Text drawing is omitted here to keep cinterop simple without missing NSAttributedString keys)
     
     val resultImage = UIGraphicsGetImageFromCurrentImageContext()

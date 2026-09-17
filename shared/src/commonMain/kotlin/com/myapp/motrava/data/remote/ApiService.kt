@@ -137,8 +137,6 @@ class ApiService(
         }
     }
 
-    suspend fun refreshSync(request: RefreshRequest): Response<AuthResponse> = refresh(request)
-
     suspend fun startTrip(request: StartTripRequest): Response<StartTripResponse> = safeRequest {
         client.post("api/trips/start") {
             contentType(ContentType.Application.Json)

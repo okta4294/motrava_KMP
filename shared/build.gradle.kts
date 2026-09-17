@@ -49,7 +49,6 @@ kotlin {
     
     sourceSets {
         androidMain.dependencies {
-            implementation(libs.compose.uiToolingPreview)
             implementation(libs.compose.uiTooling)
             implementation(libs.ktor.client.okhttp)
             implementation(libs.maplibre)
@@ -59,6 +58,7 @@ kotlin {
             implementation(libs.credentials.play.services.auth)
             implementation(libs.googleid)
             implementation(libs.koin.android)
+            implementation(libs.security.crypto)
         }
         commonMain.dependencies {
             implementation(libs.compose.runtime)
@@ -74,7 +74,6 @@ kotlin {
             implementation(libs.ktor.client.core)
             implementation(libs.ktor.client.content.negotiation)
             implementation(libs.ktor.serialization.kotlinx.json)
-            implementation(libs.ktor.client.auth)
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.datetime)
@@ -85,10 +84,8 @@ kotlin {
             implementation(libs.navigation.compose)
             implementation(libs.coil.compose)
             implementation(libs.coil.network.ktor)
-            implementation(compose.material)
             
             implementation(libs.multiplatform.settings)
-            implementation(libs.multiplatform.settings.coroutines)
             
             implementation(libs.room.runtime)
             implementation(libs.sqlite.bundled)

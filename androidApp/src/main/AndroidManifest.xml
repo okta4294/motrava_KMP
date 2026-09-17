@@ -11,7 +11,7 @@
 
     <application
         android:name=".MotravaApplication"
-        android:allowBackup="true"
+        android:allowBackup="false"
         android:icon="@drawable/logo"
         android:label="@string/app_name"
         android:roundIcon="@drawable/logo"

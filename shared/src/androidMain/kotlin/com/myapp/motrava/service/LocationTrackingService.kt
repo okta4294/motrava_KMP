@@ -242,7 +242,7 @@ class LocationTrackingService : Service() {
 
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Motrava")
-            .setContentText("Tracking sedang berjalan...")
+            .setContentText("Trip tracking in progress...")
             .setSmallIcon(android.R.drawable.ic_menu_mylocation)
             .setContentIntent(pendingIntent)
             .setOngoing(true)

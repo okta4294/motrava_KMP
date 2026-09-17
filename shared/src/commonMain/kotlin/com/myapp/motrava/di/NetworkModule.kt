@@ -7,7 +7,6 @@ import io.ktor.client.call.*
 import io.ktor.client.plugins.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.plugins.defaultRequest
-import io.ktor.client.plugins.websocket.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
@@ -33,10 +32,6 @@ val networkModule = module {
                     ignoreUnknownKeys = true
                     explicitNulls = false
                 })
-            }
-
-            install(WebSockets) {
-                pingInterval = 20_000
             }
 
             defaultRequest {

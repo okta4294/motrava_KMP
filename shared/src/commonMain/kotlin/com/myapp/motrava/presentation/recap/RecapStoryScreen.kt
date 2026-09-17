@@ -139,7 +139,7 @@ fun RecapStoryScreen(
                         modifier = Modifier.size(48.dp)
                     )
                     Spacer(modifier = Modifier.height(16.dp))
-                    Text("Menyiapkan Video...", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                    Text("Preparing Video...", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
                     Spacer(modifier = Modifier.height(6.dp))
                     Text("${(videoExportProgress * 100).toInt()}%", color = Color(0xFFFF6D00), fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 }
@@ -172,7 +172,7 @@ fun RecapStoryScreen(
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF6D00)),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("Coba Lagi", color = Color.White, fontWeight = FontWeight.Bold)
+                    Text("Retry", color = Color.White, fontWeight = FontWeight.Bold)
                 }
             }
         } else if (uiState is RecapUiState.Success) {
@@ -258,7 +258,7 @@ fun RecapStoryScreen(
                                         color = Color.White
                                     )
                                     Text(
-                                        text = "Rangkuman perjalanan terbaikmu.",
+                                        text = "Highlights of your greatest rides.",
                                         fontSize = 13.sp,
                                         color = Color.White.copy(alpha = 0.7f)
                                     )
@@ -281,7 +281,7 @@ fun RecapStoryScreen(
                                     ) {
                                         Icon(Icons.Default.Route, contentDescription = "Distance", tint = Color(0xFFFF6D00), modifier = Modifier.size(18.dp))
                                         Text(
-                                            text = "TOTAL JARAK",
+                                            text = "TOTAL DISTANCE",
                                             color = Color(0xFFFF6D00),
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.Bold,
@@ -398,7 +398,7 @@ fun RecapStoryScreen(
                                 horizontalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
                                 Icon(Icons.Default.Pause, contentDescription = null, tint = Color(0xFFFFD600), modifier = Modifier.size(14.dp))
-                                Text("JEDA", color = Color(0xFFFFD600), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Text("PAUSED", color = Color(0xFFFFD600), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     } else {
@@ -427,7 +427,7 @@ fun RecapStoryScreen(
                         ) {
                             Icon(
                                 imageVector = if (isCardVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                contentDescription = if (isCardVisible) "Sembunyikan Info" else "Tampilkan Info",
+                                contentDescription = if (isCardVisible) "Hide Info" else "Show Info",
                                 tint = if (isCardVisible) Color.White.copy(alpha = 0.85f) else Color(0xFFFF6D00),
                                 modifier = Modifier.size(18.dp)
                             )
@@ -439,7 +439,7 @@ fun RecapStoryScreen(
                                 .size(36.dp)
                                 .background(Color.Black.copy(alpha = 0.55f), CircleShape)
                         ) {
-                            Icon(Icons.Default.Close, contentDescription = "Tutup", tint = Color.White, modifier = Modifier.size(18.dp))
+                            Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White, modifier = Modifier.size(18.dp))
                         }
                     }
                 }
@@ -494,7 +494,7 @@ fun RecapStoryScreen(
                                 modifier = Modifier.size(14.dp)
                             )
                             Text(
-                                text = if (isCardVisible) "Lihat Peta Penuh" else "Tampilkan Info",
+                                text = if (isCardVisible) "View Full Map" else "Show Info",
                                 color = Color.White,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.SemiBold
@@ -513,7 +513,7 @@ fun RecapStoryScreen(
                                         videoExportProgress = p
                                     }
                                     isExportingVideo = false
-                                    exportFeedbackMsg = if (res != null) "✅ Video tersimpan di Galeri!" else "❌ Gagal ekspor"
+                                    exportFeedbackMsg = if (res != null) "✅ Video saved to Gallery!" else "❌ Export failed"
                                     delay(3000)
                                     exportFeedbackMsg = null
                                 }
@@ -528,7 +528,7 @@ fun RecapStoryScreen(
                     ) {
                         Icon(Icons.Default.Videocam, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Simpan Video", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        Text("Save Video", fontWeight = FontWeight.Bold, fontSize = 13.sp)
                     }
                 }
             }

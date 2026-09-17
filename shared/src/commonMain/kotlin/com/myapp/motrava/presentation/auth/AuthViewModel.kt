@@ -29,26 +29,11 @@ class AuthViewModel(
         _authState.value = AuthState.Loading
         viewModelScope.launch {
             val result = call()
-            if (result is AuthResult.Success) {
-                registerDeviceToken()
-            }
             _authState.value = when (result) {
                 is AuthResult.Success -> AuthState.Success(result.data)
                 is AuthResult.Error -> AuthState.Error(result.message)
             }
         }
-    }
-
-    private fun registerDeviceToken() {
-        // FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
-        //     if (task.isSuccessful) {
-        //         val token = task.result
-        //         viewModelScope.launch {
-        //             authRepository.registerDevice(token)
-        //         }
-        //     }
-        // }
-        println("Device token registration skipped in commonMain")
     }
 
     fun googleLogin(idToken: String) = executeAuthCall {

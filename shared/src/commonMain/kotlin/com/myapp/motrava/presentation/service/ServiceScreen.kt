@@ -46,6 +46,7 @@ fun ServiceScreen(
             if (uiState.selectedVehicle != null) {
                 FloatingActionButton(
                     onClick = { showAddDialog = true },
+                    modifier = Modifier.padding(bottom = 96.dp),
                     containerColor = AccentYellow,
                     contentColor = MaterialTheme.colorScheme.background,
                     shape = CircleShape
@@ -60,7 +61,7 @@ fun ServiceScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .padding(horizontal = 20.dp),
-            contentPadding = PaddingValues(top = 8.dp, bottom = 120.dp),
+            contentPadding = PaddingValues(top = 8.dp, bottom = 160.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // Vehicle Selector

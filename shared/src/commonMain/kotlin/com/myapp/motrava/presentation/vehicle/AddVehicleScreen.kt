@@ -1,4 +1,4 @@
-﻿package com.myapp.motrava.presentation.vehicle
+package com.myapp.motrava.presentation.vehicle
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -183,7 +183,7 @@ fun AddVehicleScreen(
                 OutlinedTextField(
                     value = avgBbm,
                     onValueChange = { avgBbm = it },
-                    label = { Text("Avg BBM (km/L)") },
+                    label = { Text("Avg Fuel (km/L)") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.weight(1f),
                     shape = inputShape,

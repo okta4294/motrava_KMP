@@ -88,10 +88,6 @@ class AuthRepository(
         tokenManager.clearTokens()
     }
 
-    fun getAccessToken(): String? {
-        return tokenManager.accessToken
-    }
-
     suspend fun getMe(): Result<User> {
         return try {
             val response = apiService.getMe()
