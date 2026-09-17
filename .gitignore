@@ -21,7 +21,7 @@ node_modules/
 
 *.keystore
 *.jks
-androidApp/release/baselineProfiles/
+androidApp/release/
 output-metadata.json
 logcat.txt
 AGENTS.md
