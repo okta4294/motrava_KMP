@@ -55,19 +55,19 @@ actual suspend fun exportRecapVideo(
         val h = 1920
         val fps = 30
 
-        // === Frame budget (total 450 frame = 15 detik) ===
+        // Frame budget (total 450 frames = 15s)
         val titleFrames = 30        // 1 detik
         val statsFrames = 60        // 2 detik
         val routeFrames = 360       // 12 detik
 
         onProgress(0.01f)
 
-        // === Capture map snapshot (single shot, reused for all frames) ===
+        // Capture map snapshot (single shot, reused for all frames)
         val allRoutes = recap.routes.filter { it.isNotEmpty() }
         val snapshotResult = captureMapSnapshot(context, allRoutes, w, h, isDarkTheme)
         onProgress(0.05f)
 
-        // === Output path ===
+        // Output path
         val fileName = "motrava_recap_${recap.periodName.replace(" ", "_")}_${System.currentTimeMillis()}.mp4"
         val outputFile = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             File(context.cacheDir, fileName)
@@ -77,7 +77,7 @@ actual suspend fun exportRecapVideo(
             File(dir, fileName)
         }
 
-        // === Stream render and encode MP4 (single frame buffer, avoids 3.7GB OOM) ===
+        // Stream render and encode MP4 (single frame buffer, avoids 3.7GB OOM)
         renderAndEncodeToMp4(
             outputPath = outputFile.absolutePath,
             width = w,
@@ -91,7 +91,7 @@ actual suspend fun exportRecapVideo(
             onProgress = { p -> onProgress(0.05f + p * 0.93f) }  // 5–98%
         )
 
-        // === Save to MediaStore (Android Q+) ===
+        // Save to MediaStore (Android Q+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val values = ContentValues().apply {
                 put(MediaStore.Video.Media.DISPLAY_NAME, fileName)
@@ -278,7 +278,7 @@ private fun drawStoryOverlay(
 ) {
     val startX = 90f
 
-    // Step 1: Brand Header & Period Title & "You were unstoppable."
+    // Brand Header & Period Title
     if (step1Alpha > 0f) {
         val a1 = (step1Alpha * 255).toInt().coerceIn(0, 255)
 
@@ -291,7 +291,7 @@ private fun drawStoryOverlay(
         canvas.drawText("You were unstoppable.", startX, 745f + step1OffsetY, paints.subPaint)
     }
 
-    // Step 2: DISTANCE & value
+    // Distance metric
     if (step2Alpha > 0f) {
         val a2 = (step2Alpha * 255).toInt().coerceIn(0, 255)
         paints.distLabelPaint.alpha = a2
@@ -300,17 +300,15 @@ private fun drawStoryOverlay(
         canvas.drawText(distFormatted, startX, 1010f + step2OffsetY, paints.distValPaint)
     }
 
-    // Step 3: TRIPS & MAX SPEED
+    // Trips & max speed metrics
     if (step3Alpha > 0f) {
         val a3 = (step3Alpha * 255).toInt().coerceIn(0, 255)
         paints.labelPaint.alpha = a3
         paints.valPaint.alpha = a3
 
-        // Column 1: TRIPS
         canvas.drawText("TRIPS", startX, 1160f + step3OffsetY, paints.labelPaint)
         canvas.drawText("${recap.totalTrips}", startX, 1245f + step3OffsetY, paints.valPaint)
 
-        // Column 2: MAX SPEED
         val col2X = w * 0.52f
         canvas.drawText("MAX SPEED", col2X, 1160f + step3OffsetY, paints.labelPaint)
         canvas.drawText(maxSpeedFormatted, col2X, 1245f + step3OffsetY, paints.valPaint)

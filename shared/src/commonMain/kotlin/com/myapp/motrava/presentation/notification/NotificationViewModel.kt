@@ -32,6 +32,12 @@ class NotificationViewModel(
         }
     }
 
+    fun deleteNotification(id: Long) {
+        viewModelScope.launch {
+            notificationDao.deleteNotification(id)
+        }
+    }
+
     fun clearAll() {
         viewModelScope.launch {
             notificationDao.clearAll()

@@ -46,7 +46,7 @@ val networkModule = module {
                 }
             }
 
-            // Expect non-success but don't throw — let safeRequest handle it
+            // Expect non-success but don't throw, let safeRequest handle it
             expectSuccess = false
         }
     }

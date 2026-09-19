@@ -583,7 +583,7 @@ fun RecapScreen(
                                             .padding(horizontal = 10.dp, vertical = 4.dp)
                                     ) {
                                         Text(
-                                            text = "✨ TRIP SPOTLIGHT",
+                                            text = "TRIP SPOTLIGHT",
                                             fontSize = 10.sp,
                                             fontWeight = FontWeight.ExtraBold,
                                             color = Color.White,
@@ -892,7 +892,7 @@ fun RecapScreen(
                                                 }
                                                 isExportingVideo = false
                                                 videoExportResult = result
-                                                val msg = if (result != null) "✅ Video saved to Gallery/Movies/Motrava" else "❌ Export failed"
+                                                val msg = if (result != null) "Video saved to Gallery/Movies/Motrava" else "Export failed"
                                                 snackbarHostState.showSnackbar(msg)
                                             }
                                         }

@@ -74,17 +74,16 @@ fun RegisterScreen(
         color = MaterialTheme.colorScheme.background
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            // Top background gradient (purple â†’ pink)
+            // Top ambient gradient
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(300.dp)
+                    .height(240.dp)
                     .background(
                         brush = Brush.verticalGradient(
                             colors = listOf(
-                                GradientPurple.copy(alpha = 0.3f),
-                                GradientPink.copy(alpha = 0.1f),
-                                MaterialTheme.colorScheme.background
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+                                Color.Transparent
                             )
                         )
                     )

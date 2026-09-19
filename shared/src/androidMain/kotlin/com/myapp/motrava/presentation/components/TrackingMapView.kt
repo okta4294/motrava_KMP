@@ -102,6 +102,14 @@ actual fun TrackingMapView(
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
             try {
+                mapView.getMapAsync { map ->
+                    try {
+                        if (map.locationComponent.isLocationComponentActivated) {
+                            map.locationComponent.isLocationComponentEnabled = false
+                            map.locationComponent.onStop()
+                        }
+                    } catch (_: Exception) {}
+                }
                 mapView.onPause()
                 mapView.onStop()
                 mapView.onDestroy()
@@ -140,26 +148,36 @@ actual fun TrackingMapView(
     // 3. Load style and activate LocationComponent
     LaunchedEffect(isDarkTheme) {
         mapView.getMapAsync { map ->
+            try {
+                if (map.locationComponent.isLocationComponentActivated) {
+                    map.locationComponent.isLocationComponentEnabled = false
+                    map.locationComponent.onStop()
+                }
+            } catch (_: Exception) {}
+
             map.setStyle(mapStyleUrl) { style ->
+                if (!style.isFullyLoaded) return@setStyle
                 if (androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED ||
                     androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_COARSE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
 
-                    val locationComponent = map.locationComponent
-                    val locationOptions = org.maplibre.android.location.LocationComponentOptions.builder(context)
-                        .compassAnimationEnabled(true)
-                        .accuracyAnimationEnabled(true)
-                        .build()
-                    val options = org.maplibre.android.location.LocationComponentActivationOptions.builder(context, style)
-                        .locationComponentOptions(locationOptions)
-                        .useDefaultLocationEngine(true)
-                        .build()
-                    locationComponent.activateLocationComponent(options)
-                    
-                    locationComponent.onStart()
-                    locationComponent.isLocationComponentEnabled = true
-                    locationComponent.cameraMode = org.maplibre.android.location.modes.CameraMode.TRACKING
-                    locationComponent.zoomWhileTracking(16.0)
-                    locationComponent.renderMode = targetRenderMode
+                    try {
+                        val locationComponent = map.locationComponent
+                        val locationOptions = org.maplibre.android.location.LocationComponentOptions.builder(context)
+                            .compassAnimationEnabled(true)
+                            .accuracyAnimationEnabled(true)
+                            .build()
+                        val options = org.maplibre.android.location.LocationComponentActivationOptions.builder(context, style)
+                            .locationComponentOptions(locationOptions)
+                            .useDefaultLocationEngine(true)
+                            .build()
+                        locationComponent.activateLocationComponent(options)
+                        
+                        locationComponent.onStart()
+                        locationComponent.isLocationComponentEnabled = true
+                        locationComponent.cameraMode = org.maplibre.android.location.modes.CameraMode.TRACKING
+                        locationComponent.zoomWhileTracking(16.0)
+                        locationComponent.renderMode = targetRenderMode
+                    } catch (_: Exception) {}
                 }
             }
         }
@@ -209,40 +227,43 @@ actual fun TrackingMapView(
     // 6. Draw route polyline
     LaunchedEffect(currentRoute) {
         mapView.getMapAsync { map ->
-            map.style?.let { style ->
-                val sourceId = "realtime-route-source"
-                val layerId = "realtime-route-layer"
+            map.getStyle { style ->
+                if (!style.isFullyLoaded) return@getStyle
+                try {
+                    val sourceId = "realtime-route-source"
+                    val layerId = "realtime-route-layer"
 
-                if (currentRoute.size >= 2) {
-                    val points = currentRoute.map { org.maplibre.geojson.Point.fromLngLat(it.second, it.first) }
-                    val lineString = org.maplibre.geojson.LineString.fromLngLats(points)
-                    val feature = org.maplibre.geojson.Feature.fromGeometry(lineString)
-                    val featureCollection = org.maplibre.geojson.FeatureCollection.fromFeatures(arrayOf(feature))
+                    if (currentRoute.size >= 2) {
+                        val points = currentRoute.map { org.maplibre.geojson.Point.fromLngLat(it.second, it.first) }
+                        val lineString = org.maplibre.geojson.LineString.fromLngLats(points)
+                        val feature = org.maplibre.geojson.Feature.fromGeometry(lineString)
+                        val featureCollection = org.maplibre.geojson.FeatureCollection.fromFeatures(arrayOf(feature))
 
-                    if (style.getSource(sourceId) == null) {
-                        style.addSource(org.maplibre.android.style.sources.GeoJsonSource(sourceId, featureCollection))
-                    } else {
-                        (style.getSource(sourceId) as org.maplibre.android.style.sources.GeoJsonSource).setGeoJson(featureCollection)
-                    }
-
-                    if (style.getLayer(layerId) == null) {
-                        val lineLayer = org.maplibre.android.style.layers.LineLayer(layerId, sourceId).apply {
-                            setProperties(
-                                org.maplibre.android.style.layers.PropertyFactory.lineColor(android.graphics.Color.parseColor("#FF9800")),
-                                org.maplibre.android.style.layers.PropertyFactory.lineWidth(4f),
-                                org.maplibre.android.style.layers.PropertyFactory.lineJoin(org.maplibre.android.style.layers.Property.LINE_JOIN_ROUND),
-                                org.maplibre.android.style.layers.PropertyFactory.lineCap(org.maplibre.android.style.layers.Property.LINE_CAP_ROUND)
-                            )
-                        }
-                        if (style.getLayer("mapbox-location-background-layer") != null) {
-                            style.addLayerBelow(lineLayer, "mapbox-location-background-layer")
+                        if (style.getSource(sourceId) == null) {
+                            style.addSource(org.maplibre.android.style.sources.GeoJsonSource(sourceId, featureCollection))
                         } else {
-                            style.addLayer(lineLayer)
+                            (style.getSource(sourceId) as? org.maplibre.android.style.sources.GeoJsonSource)?.setGeoJson(featureCollection)
                         }
+
+                        if (style.getLayer(layerId) == null) {
+                            val lineLayer = org.maplibre.android.style.layers.LineLayer(layerId, sourceId).apply {
+                                setProperties(
+                                    org.maplibre.android.style.layers.PropertyFactory.lineColor(android.graphics.Color.parseColor("#FF9800")),
+                                    org.maplibre.android.style.layers.PropertyFactory.lineWidth(4f),
+                                    org.maplibre.android.style.layers.PropertyFactory.lineJoin(org.maplibre.android.style.layers.Property.LINE_JOIN_ROUND),
+                                    org.maplibre.android.style.layers.PropertyFactory.lineCap(org.maplibre.android.style.layers.Property.LINE_CAP_ROUND)
+                                )
+                            }
+                            if (style.getLayer("mapbox-location-background-layer") != null) {
+                                style.addLayerBelow(lineLayer, "mapbox-location-background-layer")
+                            } else {
+                                style.addLayer(lineLayer)
+                            }
+                        }
+                    } else {
+                        (style.getSource(sourceId) as? org.maplibre.android.style.sources.GeoJsonSource)?.setGeoJson(org.maplibre.geojson.FeatureCollection.fromFeatures(emptyArray()))
                     }
-                } else {
-                    (style.getSource(sourceId) as? org.maplibre.android.style.sources.GeoJsonSource)?.setGeoJson(org.maplibre.geojson.FeatureCollection.fromFeatures(emptyArray()))
-                }
+                } catch (_: Exception) {}
             }
         }
     }

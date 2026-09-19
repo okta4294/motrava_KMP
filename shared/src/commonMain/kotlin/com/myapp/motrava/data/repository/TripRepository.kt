@@ -87,7 +87,7 @@ class TripRepository(
 
     suspend fun getTripRecap(periodName: String, startDate: String, endDate: String, vehicleId: String? = null, vehicleName: String? = null): Result<TripRecap> = coroutineScope {
         try {
-            // 1. Fetch all trips in this period (assuming limit 100 is enough for a month)
+            // Fetch all trips in this period (limit 100 per period)
             val historyResult = getTripHistory(page = 1, limit = 100, startDate = startDate, endDate = endDate)
             if (historyResult.isFailure) {
                 return@coroutineScope Result.failure(historyResult.exceptionOrNull() ?: Exception("Failed to fetch history for recap"))
@@ -156,7 +156,7 @@ class TripRepository(
 
             val avgSpeed = if (trips.isNotEmpty()) sumAverageSpeed / trips.size else 0.0
 
-            // 2. Fetch routes concurrently
+            // Fetch routes concurrently
             val routesDeferred = trips.map { trip ->
                 async {
                     val detail = getTripDetail(trip.id).getOrNull()

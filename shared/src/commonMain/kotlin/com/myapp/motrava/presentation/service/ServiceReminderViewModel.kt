@@ -15,11 +15,16 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+import com.myapp.motrava.data.remote.dto.ServiceReminderProgressData
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+
 data class ServiceReminderUiState(
     val isLoading: Boolean = false,
     val vehicles: List<VehicleData> = emptyList(),
     val selectedVehicle: VehicleData? = null,
     val reminders: List<ServiceReminderData> = emptyList(),
+    val progressMap: Map<String, ServiceReminderProgressData> = emptyMap(),
     val error: String? = null
 )
 
@@ -71,7 +76,22 @@ class ServiceReminderViewModel(
             _uiState.update { it.copy(isLoading = true, error = null) }
             val result = serviceReminderRepository.getServiceReminders(vehicleId)
             result.onSuccess { reminders ->
-                _uiState.update { it.copy(reminders = reminders, isLoading = false) }
+                val progressDeferred = reminders.map { reminder ->
+                    async {
+                        val prog = serviceReminderRepository.getServiceReminderProgress(vehicleId, reminder.id).getOrNull()
+                        reminder.id to prog
+                    }
+                }
+                val progressList = progressDeferred.awaitAll()
+                val progressMap = progressList.mapNotNull { (id, prog) -> if (prog != null) id to prog else null }.toMap()
+
+                _uiState.update { 
+                    it.copy(
+                        reminders = reminders, 
+                        progressMap = progressMap,
+                        isLoading = false
+                    ) 
+                }
             }.onFailure { error ->
                 _uiState.update { it.copy(isLoading = false, error = error.message) }
             }

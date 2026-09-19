@@ -127,23 +127,13 @@ fun TrackingScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                // Live recording pulsing dot if tracking
+                // Live recording indicator dot if tracking
                 if (isTracking) {
-                    val infiniteTransition = rememberInfiniteTransition(label = "pulse_rec")
-                    val pulseAlpha by infiniteTransition.animateFloat(
-                        initialValue = 1f,
-                        targetValue = 0.25f,
-                        animationSpec = infiniteRepeatable(
-                            animation = tween(800, easing = LinearEasing),
-                            repeatMode = RepeatMode.Reverse
-                        ),
-                        label = "pulse_alpha"
-                    )
                     Box(
                         modifier = Modifier
                             .size(9.dp)
                             .clip(CircleShape)
-                            .background(ActivePink.copy(alpha = pulseAlpha))
+                            .background(ActivePink)
                     )
                 }
 

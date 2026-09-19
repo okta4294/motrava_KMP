@@ -149,7 +149,7 @@ class LocationTrackingService : Service() {
                     startForegroundService()
                     requestLocationUpdates()
                 } else {
-                    // START_STICKY restart without intent extras — restore from prefs
+                    // START_STICKY restart without intent extras, restore from prefs
                     val savedTrip = prefs.getString("active_trip_id", null)
                     val savedVehicle = prefs.getString("active_vehicle_id", null)
                     if (savedTrip != null) {
@@ -208,7 +208,7 @@ class LocationTrackingService : Service() {
                             Log.e("LocationService", "Final batch sync failed", e)
                         }
 
-                        // Now end the trip — server has all points to calculate distance
+                        // End the trip after server has all points to calculate distance
                         try {
                             apiService.endTrip(currentTrip, finalDistance)
                             println("LocationService: [DIAG] REST endTrip called successfully. distance=${finalDistance}m")
@@ -436,7 +436,7 @@ class LocationTrackingService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         stopLocationUpdates()
-        // Don't cancel immediately — give the stop coroutine time to flush & endTrip
+        // Don't cancel immediately: give the stop coroutine time to flush and endTrip
         // serviceScope uses NonCancellable for the stop flow, so cancel is safe
         // but we add a small delay to let any in-flight work finish
         try {

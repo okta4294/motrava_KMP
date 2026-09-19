@@ -1,4 +1,4 @@
-﻿package com.myapp.motrava.presentation.dashboard
+package com.myapp.motrava.presentation.dashboard
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -18,12 +18,17 @@ import kotlinx.coroutines.launch
 import com.myapp.motrava.data.remote.dto.ServiceReminderProgressData
 
 
+import com.myapp.motrava.data.local.NotificationDao
+import com.myapp.motrava.data.local.NotificationEntity
+import kotlinx.datetime.Clock
+
 class DashboardViewModel(
     private val tripRepository: TripRepository,
     private val vehicleRepository: VehicleRepository,
     private val serviceReminderRepository: ServiceReminderRepository,
     private val authRepository: AuthRepository,
-    private val tokenManager: TokenManager
+    private val tokenManager: TokenManager,
+    private val notificationDao: NotificationDao? = null
 ) : ViewModel() {
 
     private suspend fun fetchUserName(): String {
@@ -175,6 +180,26 @@ class DashboardViewModel(
                         progressPercent = progress.progressPercent.toInt(),
                         isOverdue = progress.needsService
                     )
+                    notificationDao?.let { dao ->
+                        val payloadKey = "service_${progress.id}"
+                        if (dao.getUnreadByPayload(payloadKey) == null) {
+                            val title = if (progress.needsService) "Service Overdue: ${progress.serviceName}" else "Service Due Soon: ${progress.serviceName}"
+                            val body = if (progress.needsService) {
+                                "Your vehicle has exceeded the service interval for ${progress.serviceName}. Maintenance is overdue."
+                            } else {
+                                "Your vehicle is at ${progress.progressPercent.toInt()}% of the ${progress.serviceName} service interval."
+                            }
+                            dao.insertNotification(
+                                NotificationEntity(
+                                    title = title,
+                                    body = body,
+                                    timestamp = Clock.System.now().toEpochMilliseconds(),
+                                    dataPayload = payloadKey,
+                                    isRead = false
+                                )
+                            )
+                        }
+                    }
                 }
             } else {
                 val errorMsg = tripsResult.exceptionOrNull()?.message ?: vehiclesResult.exceptionOrNull()?.message ?: "Unknown error"

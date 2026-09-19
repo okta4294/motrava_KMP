@@ -33,14 +33,7 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /**
- * Curved / Fluid Scooped Bottom Navigation Bar
- * Desain ceruk organik melengkung simetris yang rapi, mulus, dan presisi:
- * - Menghitung offset tepi proporsional (edgeOffset = 60.dp) agar Tab 0 (Dashboard) dan Tab 3 (Profile)
- *   memiliki ceruk yang sempurna tanpa menabrak atau terpotong sudut membulat bilah (margin 6 dp).
- * - Menggunakan kurva Bezier mulus C^1 kontinu dengan tangen horizontal di semua titik transisi.
- * - Floating circular bubble bertengger anggun di atas ceruk (cradle), memperlihatkan lengkungan
- *   bersih di bawah dan sekeliling tombol.
- * - Dilengkapi bayangan ambient berlapis (multi-tier drop shadow) yang halus pada Light dan Dark mode.
+ * Scooped bottom navigation bar with animated indicator bubble and Bezier curves.
  */
 @Composable
 fun CurvedBottomNavBar(

@@ -20,6 +20,12 @@ interface NotificationDao {
     @Query("UPDATE notifications SET isRead = 1")
     fun markAllAsRead()
     
+    @Query("DELETE FROM notifications WHERE id = :id")
+    fun deleteNotification(id: Long)
+
     @Query("DELETE FROM notifications")
     fun clearAll()
+
+    @Query("SELECT * FROM notifications WHERE dataPayload = :payload AND isRead = 0 LIMIT 1")
+    fun getUnreadByPayload(payload: String): NotificationEntity?
 }

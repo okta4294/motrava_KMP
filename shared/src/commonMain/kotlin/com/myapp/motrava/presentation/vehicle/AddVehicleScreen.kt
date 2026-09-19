@@ -6,7 +6,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -76,13 +76,13 @@ fun AddVehicleScreen(
     }
 
     // Input field styling
-    val inputShape = RoundedCornerShape(12.dp)
+    val inputShape = RoundedCornerShape(16.dp)
     val inputColors = OutlinedTextFieldDefaults.colors(
-        focusedBorderColor = GradientPink,
-        unfocusedBorderColor = GradientPurple,
-        focusedLabelColor = GradientPink,
-        unfocusedLabelColor = GradientPink.copy(alpha = 0.7f),
-        cursorColor = GradientPink
+        focusedBorderColor = GradientPurple,
+        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+        focusedLabelColor = GradientPurple,
+        unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        cursorColor = GradientPurple
     )
 
     Scaffold(
@@ -98,9 +98,9 @@ fun AddVehicleScreen(
                 navigationIcon = {
                     IconButton(onClick = onVehicleAdded) {
                         Icon(
-                            Icons.Default.ArrowBack,
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back",
-                            tint = GradientPink
+                            tint = MaterialTheme.colorScheme.onBackground
                         )
                     }
                 },

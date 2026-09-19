@@ -1,5 +1,6 @@
 package com.myapp.motrava.presentation.profile
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -14,7 +15,7 @@ import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.DirectionsCar
-import androidx.compose.material.icons.filled.DirectionsBike
+import androidx.compose.material.icons.filled.TwoWheeler
 import androidx.compose.material3.*
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -54,7 +55,7 @@ fun ProfileScreen(
         modifier = Modifier
             .fillMaxSize()
             .padding(horizontal = 20.dp),
-        contentPadding = PaddingValues(top = 8.dp, bottom = 120.dp),
+        contentPadding = PaddingValues(top = 8.dp, bottom = 180.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         // Profile Header (centered)
@@ -140,9 +141,10 @@ fun ProfileScreen(
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
+                shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
             ) {
                 Column(modifier = Modifier.padding(20.dp)) {
                     Row(
@@ -204,19 +206,19 @@ fun ProfileScreen(
                                         // Vehicle icon in colored circle
                                         Surface(
                                             shape = CircleShape,
-                                            color = ActivePink.copy(alpha = 0.15f),
+                                            color = GradientPurple.copy(alpha = 0.12f),
                                             modifier = Modifier.size(44.dp)
                                         ) {
                                             Box(contentAlignment = Alignment.Center) {
                                                 Icon(
                                                     imageVector = when (vehicle.vehicleType.uppercase()) {
-                                                        "MOTORCYCLE" -> Icons.Default.DirectionsBike
+                                                        "MOTORCYCLE" -> Icons.Default.TwoWheeler
                                                         "CAR" -> Icons.Default.DirectionsCar
                                                         else -> Icons.Default.DirectionsCar
                                                     },
                                                     contentDescription = null,
-                                                    modifier = Modifier.size(18.dp),
-                                                    tint = ActivePink
+                                                    modifier = Modifier.size(20.dp),
+                                                    tint = GradientPurple
                                                 )
                                             }
                                         }
@@ -278,7 +280,7 @@ fun ProfileScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "Motrava v2.0",
+                    text = "Motrava v2.1",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                 )

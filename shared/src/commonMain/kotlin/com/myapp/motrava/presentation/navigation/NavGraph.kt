@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.filled.Dashboard
@@ -48,7 +49,6 @@ import com.myapp.motrava.presentation.notification.NotificationScreen
 import com.myapp.motrava.presentation.service.ServiceScreen
 import com.myapp.motrava.presentation.dashboard.DashboardScreen
 import com.myapp.motrava.presentation.profile.ProfileScreen
-import com.myapp.motrava.presentation.service.AddServiceScreen
 import com.myapp.motrava.presentation.tracking.TrackingScreen
 import com.myapp.motrava.presentation.trip.TripDetailScreen
 import com.myapp.motrava.presentation.vehicle.AddVehicleScreen
@@ -70,7 +70,6 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
     object EditVehicle : Screen("edit_vehicle/{vehicleId}", "Edit Vehicle") {
         fun createRoute(vehicleId: String) = "edit_vehicle/$vehicleId"
     }
-    object AddService : Screen("add_service", "Add Service")
     object TripDetail : Screen("trip_detail/{tripId}", "Trip Detail") {
         fun createRoute(tripId: String) = "trip_detail/$tripId"
     }
@@ -124,7 +123,7 @@ fun MotravaApp(isDarkMode: Boolean, onThemeToggle: () -> Unit) {
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             AnimatedVisibility(
-                visible = showShell,
+                visible = showShell && bottomNavItems.any { it.route == currentRoute },
                 enter = fadeIn(),
                 exit = fadeOut()
             ) {
@@ -160,7 +159,7 @@ fun MotravaApp(isDarkMode: Boolean, onThemeToggle: () -> Unit) {
                                 }
                             }) {
                                 Icon(
-                                    imageVector = Icons.Default.Logout,
+                                    imageVector = Icons.AutoMirrored.Filled.Logout,
                                     contentDescription = "Logout",
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -231,7 +230,6 @@ fun MotravaApp(isDarkMode: Boolean, onThemeToggle: () -> Unit) {
             composable(Screen.Register.route) {
                 RegisterScreen(
                     onRegisterSuccess = {
-                        // In a real app, maybe log them in automatically
                         navController.navigate(Screen.Login.route) {
                             popUpTo(Screen.Register.route) { inclusive = true }
                         }
@@ -276,9 +274,6 @@ fun MotravaApp(isDarkMode: Boolean, onThemeToggle: () -> Unit) {
                     vehicleId = vehicleId,
                     onVehicleAdded = { navController.popBackStack() }
                 )
-            }
-            composable(Screen.AddService.route) { 
-                AddServiceScreen(onServiceSaved = { navController.popBackStack() }) 
             }
             composable(
                 route = Screen.TripDetail.route,

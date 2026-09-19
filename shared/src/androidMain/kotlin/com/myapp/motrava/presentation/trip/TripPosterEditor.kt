@@ -120,7 +120,6 @@ actual fun PosterEditorDialog(
             color = Color(0xFF121318)
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
-                // Top Bar
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -173,7 +172,6 @@ actual fun PosterEditorDialog(
                     }
                 }
 
-                // Interactive Preview Area (Center)
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
@@ -282,7 +280,6 @@ actual fun PosterEditorDialog(
                             )
                         }
 
-                        // Draggable Sticker Overlay
                         Box(
                             contentAlignment = Alignment.Center,
                             modifier = Modifier
@@ -303,7 +300,6 @@ actual fun PosterEditorDialog(
                     }
                 }
 
-                // Bottom Controls
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -711,7 +707,7 @@ private suspend fun exportEditedTripPoster(
             // Full Maps: Draw overlay directly pinned to 1080x1920 canvas without offset/scale distortion
             drawFullMapsOverlay(canvas, posterData)
         } else {
-            // 2. Draw Sticker at Custom Position & Scale (Standard 1x scale for Full HD canvas)
+            // Draw sticker at custom position and scale
             val centerX = 540f + (relX * 1080f)
             val centerY = 960f + (relY * 1920f)
             canvas.save()
@@ -721,7 +717,7 @@ private suspend fun exportEditedTripPoster(
             canvas.restore()
         }
 
-        // 3. Save to MediaStore
+        // Save to MediaStore
         val filename = "motrava_poster_${System.currentTimeMillis()}.png"
         val values = ContentValues().apply {
             put(MediaStore.Images.Media.DISPLAY_NAME, filename)

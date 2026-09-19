@@ -223,7 +223,7 @@ fun RecapStoryScreen(
                             modifier = Modifier.padding(horizontal = 20.dp, vertical = 20.dp),
                             horizontalAlignment = Alignment.Start
                         ) {
-                            // Step 1: Period & Motivation Badge
+                            // Period & Motivation Badge
                             AnimatedVisibility(
                                 visible = showStep1,
                                 enter = fadeIn(tween(800)) + slideInVertically(tween(800), initialOffsetY = { 20 })
@@ -265,7 +265,7 @@ fun RecapStoryScreen(
                                 }
                             }
 
-                            // Step 2: Distance Highlight
+                            // Distance Highlight
                             AnimatedVisibility(
                                 visible = showStep2,
                                 enter = fadeIn(tween(800)) + slideInVertically(tween(800), initialOffsetY = { 20 })
@@ -299,7 +299,7 @@ fun RecapStoryScreen(
                                 }
                             }
 
-                            // Step 3: Trips & Max Speed Dual Tiles
+                            // Trips & Max Speed Dual Tiles
                             AnimatedVisibility(
                                 visible = showStep3,
                                 enter = fadeIn(tween(800)) + slideInVertically(tween(800), initialOffsetY = { 20 })
@@ -513,7 +513,7 @@ fun RecapStoryScreen(
                                         videoExportProgress = p
                                     }
                                     isExportingVideo = false
-                                    exportFeedbackMsg = if (res != null) "✅ Video saved to Gallery!" else "❌ Export failed"
+                                    exportFeedbackMsg = if (res != null) "Video saved to Gallery!" else "Export failed"
                                     delay(3000)
                                     exportFeedbackMsg = null
                                 }

@@ -11,6 +11,7 @@ import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Route
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.TwoWheeler
@@ -176,7 +177,7 @@ fun TripDetailScreen(
                     val trip = (state as TripDetailViewModel.TripDetailState.Success).trip
                     
                     Column(modifier = Modifier.fillMaxSize()) {
-                        // Map showing the route (live view only — snapshot taken on-demand)
+                        // Map showing the route (live view only, snapshot taken on-demand)
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -205,7 +206,7 @@ fun TripDetailScreen(
                             onOpenPosterEditor = { isTransparent ->
                                 initialTransparent = isTransparent
                                 if (trip.route.isNullOrEmpty()) {
-                                    // No route data — open editor without map background
+                                    // No route data: open editor without map background
                                     showPosterEditor = true
                                 } else if (cachedSnapshot != null) {
                                     // Already have a cached high-res snapshot
@@ -243,7 +244,7 @@ fun TripDetailScreen(
                                             videoExportProgress = p
                                         }
                                         isExportingVideo = false
-                                        val msg = if (result != null) "✅ Video saved to Gallery/Motrava" else "❌ Export failed"
+                                        val msg = if (result != null) "Video saved to Gallery/Motrava" else "Export failed"
                                         snackbarHostState.showSnackbar(msg)
                                     }
                                 }
@@ -282,17 +283,17 @@ fun TripStatsCard(trip: TripDetailData, onOpenPosterEditor: (Boolean) -> Unit, o
         )
     }
 
-    val cardColor = if (isDark) CardDark else LightSurface
-    val borderColor = if (isDark) CardDarkBorder.copy(alpha = 0.6f) else Color(0xFFE2E8F0)
+    val cardColor = MaterialTheme.colorScheme.surface
+    val borderColor = if (isDark) CardDarkBorder.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
 
     Surface(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 12.dp)
-            .border(1.dp, borderColor, RoundedCornerShape(24.dp)),
-        shape = RoundedCornerShape(24.dp),
+            .border(1.dp, borderColor, RoundedCornerShape(16.dp)),
+        shape = RoundedCornerShape(16.dp),
         color = cardColor,
-        shadowElevation = if (isDark) 4.dp else 2.dp
+        shadowElevation = if (isDark) 4.dp else 1.dp
     ) {
         Column(
             modifier = Modifier
@@ -310,15 +311,15 @@ fun TripStatsCard(trip: TripDetailData, onOpenPosterEditor: (Boolean) -> Unit, o
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = AccentPeach.copy(alpha = 0.15f),
+                        shape = RoundedCornerShape(10.dp),
+                        color = GradientPurple.copy(alpha = 0.12f),
                         modifier = Modifier.size(40.dp)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
                                 imageVector = Icons.Default.TwoWheeler,
                                 contentDescription = null,
-                                tint = AccentPeach,
+                                tint = GradientPurple,
                                 modifier = Modifier.size(22.dp)
                             )
                         }
@@ -328,13 +329,13 @@ fun TripStatsCard(trip: TripDetailData, onOpenPosterEditor: (Boolean) -> Unit, o
                             text = trip.vehicleName ?: "Vehicle",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = if (isDark) Color.White else TextDark
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         if (!trip.plateNumber.isNullOrEmpty()) {
                             Text(
                                 text = trip.plateNumber,
                                 style = MaterialTheme.typography.bodySmall,
-                                color = if (isDark) TextMuted else TextDarkMuted,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontWeight = FontWeight.Medium
                             )
                         }
@@ -359,7 +360,7 @@ fun TripStatsCard(trip: TripDetailData, onOpenPosterEditor: (Boolean) -> Unit, o
             Spacer(modifier = Modifier.height(12.dp))
 
             // Subtle divider
-            androidx.compose.material3.Divider(color = borderColor, thickness = 1.dp)
+            HorizontalDivider(color = borderColor, thickness = 1.dp)
 
             Spacer(modifier = Modifier.height(12.dp))
 
@@ -395,8 +396,8 @@ fun TripStatsCard(trip: TripDetailData, onOpenPosterEditor: (Boolean) -> Unit, o
                 )
                 MetricTile(
                     modifier = Modifier.weight(1f),
-                    icon = Icons.Default.Timer,
-                    iconTint = AccentGreen,
+                    icon = Icons.Default.Schedule,
+                    iconTint = AccentPeach,
                     label = "Duration",
                     value = durStr,
                     isDark = isDark
