@@ -23,11 +23,14 @@
 -dontwarn org.slf4j.**
 -dontwarn org.slf4j.impl.StaticLoggerBinder
 
-# Strip verbose/debug logs and println from release builds (security: prevents log leakage)
+# Strip logs and println from release builds (security: prevents log leakage)
 -assumenosideeffects class android.util.Log {
     public static boolean isLoggable(java.lang.String, int);
     public static int v(...);
     public static int d(...);
+    public static int i(...);
+    public static int w(...);
+    public static int e(...);
 }
 -assumenosideeffects class java.io.PrintStream {
     public void println(...);

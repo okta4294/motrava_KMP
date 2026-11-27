@@ -123,10 +123,10 @@ fun RecapStoryScreen(
     if (isExportingVideo) {
         Dialog(onDismissRequest = {}) {
             Surface(
-                shape = RoundedCornerShape(20.dp),
-                color = Color(0xFF161922),
-                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
-                shadowElevation = 16.dp
+                shape = RoundedCornerShape(16.dp),
+                color = Color(0xFF24201D),
+                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.14f)),
+                shadowElevation = 12.dp
             ) {
                 Column(
                     modifier = Modifier.padding(24.dp),
@@ -134,14 +134,14 @@ fun RecapStoryScreen(
                 ) {
                     CircularProgressIndicator(
                         progress = { videoExportProgress },
-                        color = Color(0xFFFF6D00),
+                        color = Color(0xFFFE6E00),
                         strokeWidth = 3.dp,
                         modifier = Modifier.size(48.dp)
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Text("Preparing Video...", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
                     Spacer(modifier = Modifier.height(6.dp))
-                    Text("${(videoExportProgress * 100).toInt()}%", color = Color(0xFFFF6D00), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Text("${(videoExportProgress * 100).toInt()}%", color = Color(0xFFFE6E00), fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -150,7 +150,7 @@ fun RecapStoryScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF090A0F))
+            .background(Color(0xFF1A1715))
             .clickable { isPaused = !isPaused }
     ) {
         if (uiState is RecapUiState.Loading) {
@@ -213,10 +213,10 @@ fun RecapStoryScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Surface(
-                        shape = RoundedCornerShape(22.dp),
-                        color = Color(0xFF12141E).copy(alpha = 0.76f),
-                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.16f)),
-                        shadowElevation = 16.dp,
+                        shape = RoundedCornerShape(18.dp),
+                        color = Color(0xFF1A1715).copy(alpha = 0.82f),
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.14f)),
+                        shadowElevation = 12.dp,
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(
@@ -422,24 +422,24 @@ fun RecapStoryScreen(
                         IconButton(
                             onClick = { isCardVisible = !isCardVisible },
                             modifier = Modifier
-                                .size(36.dp)
+                                .size(44.dp)
                                 .background(Color.Black.copy(alpha = 0.55f), CircleShape)
                         ) {
                             Icon(
                                 imageVector = if (isCardVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
                                 contentDescription = if (isCardVisible) "Hide Info" else "Show Info",
-                                tint = if (isCardVisible) Color.White.copy(alpha = 0.85f) else Color(0xFFFF6D00),
-                                modifier = Modifier.size(18.dp)
+                                tint = if (isCardVisible) Color.White.copy(alpha = 0.85f) else Color(0xFFFE6E00),
+                                modifier = Modifier.size(20.dp)
                             )
                         }
 
                         IconButton(
                             onClick = onClose,
                             modifier = Modifier
-                                .size(36.dp)
+                                .size(44.dp)
                                 .background(Color.Black.copy(alpha = 0.55f), CircleShape)
                         ) {
-                            Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White, modifier = Modifier.size(18.dp))
+                            Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White, modifier = Modifier.size(20.dp))
                         }
                     }
                 }

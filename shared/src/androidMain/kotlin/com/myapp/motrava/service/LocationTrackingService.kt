@@ -31,6 +31,7 @@ class LocationTrackingService : Service() {
     private val apiService: ApiService by inject()
     private val locationPointDao: LocationPointDao by inject()
     private val tripSessionManager: TripSessionManager by inject()
+    private val secureSettings: com.russhwolf.settings.Settings by inject()
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var locationManager: LocationManager
     private var tripId: String? = null
@@ -46,7 +47,6 @@ class LocationTrackingService : Service() {
     }
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val prefs by lazy { getSharedPreferences("trip_service_prefs", Context.MODE_PRIVATE) }
     private val syncMutex = Mutex()
 
     override fun onCreate() {
@@ -57,7 +57,7 @@ class LocationTrackingService : Service() {
         // Restore state if service is recreated by OS (START_STICKY)
         currentDistanceMeters = tripSessionManager.distanceMeters.value
         if (currentDistanceMeters == 0f) {
-            currentDistanceMeters = prefs.getFloat("saved_distance_meters", 0f)
+            currentDistanceMeters = secureSettings.getFloat("saved_distance_meters", 0f)
         }
         val latLng = tripSessionManager.currentLatLng.value
         if (latLng != null) {
@@ -67,7 +67,7 @@ class LocationTrackingService : Service() {
                 time = System.currentTimeMillis()
             }
         }
-        tripId = tripSessionManager.activeTripId.value ?: prefs.getString("active_trip_id", null)
+        tripId = tripSessionManager.activeTripId.value ?: secureSettings.getStringOrNull("active_trip_id")
 
         serviceScope.launch {
             syncAllPendingTrips()
@@ -92,6 +92,7 @@ class LocationTrackingService : Service() {
                     val resp = apiService.batchUploadLocations(tId, messages)
                     if (resp.isSuccessful) {
                         locationPointDao.markAsSynced(batch.map { it.id })
+                        locationPointDao.deleteSyncedByTrip(tId)
                     }
                 } catch (e: Exception) {
                     Log.e("LocationService", "Failed to sync pending trip $tId", e)
@@ -100,19 +101,17 @@ class LocationTrackingService : Service() {
         }
 
         // Finalize any trip that ended offline once internet is back
-        val pendingEndTrip = prefs.getString("pending_end_trip", null)
+        val pendingEndTrip = secureSettings.getStringOrNull("pending_end_trip")
         if (pendingEndTrip != null) {
             val remainingUnsynced = locationPointDao.getUnsyncedByTrip(pendingEndTrip, 1)
             if (remainingUnsynced.isEmpty()) {
-                val pendingDist = prefs.getFloat("pending_end_distance", 0f).toDouble()
+                val pendingDist = secureSettings.getFloat("pending_end_distance", 0f).toDouble()
                 try {
                     val endResp = apiService.endTrip(pendingEndTrip, pendingDist)
                     if (endResp.isSuccessful) {
                         Log.i("LocationService", "Successfully ended pending offline trip $pendingEndTrip")
-                        prefs.edit()
-                            .remove("pending_end_trip")
-                            .remove("pending_end_distance")
-                            .apply()
+                        secureSettings.remove("pending_end_trip")
+                        secureSettings.remove("pending_end_distance")
                     }
                 } catch (e: Exception) {
                     Log.e("LocationService", "Failed to end pending offline trip $pendingEndTrip", e)
@@ -132,16 +131,18 @@ class LocationTrackingService : Service() {
                     tripId = newTripId
 
                     // Persist tripId and vehicleId so START_STICKY can restore
-                    prefs.edit()
-                        .putString("active_trip_id", newTripId)
-                        .putString("active_vehicle_id", vehicleId)
-                        .apply()
+                    secureSettings.putString("active_trip_id", newTripId)
+                    if (vehicleId != null) {
+                        secureSettings.putString("active_vehicle_id", vehicleId)
+                    } else {
+                        secureSettings.remove("active_vehicle_id")
+                    }
 
                     if (!isResume) {
                         stopLocationUpdates()
                         lastLocation = null
                         currentDistanceMeters = 0f
-                        prefs.edit().putFloat("saved_distance_meters", 0f).apply()
+                        secureSettings.putFloat("saved_distance_meters", 0f)
                         tripSessionManager.setTripInactive()
                         tripSessionManager.setTripActive(newTripId, vehicleId)
                     }
@@ -150,8 +151,8 @@ class LocationTrackingService : Service() {
                     requestLocationUpdates()
                 } else {
                     // START_STICKY restart without intent extras, restore from prefs
-                    val savedTrip = prefs.getString("active_trip_id", null)
-                    val savedVehicle = prefs.getString("active_vehicle_id", null)
+                    val savedTrip = secureSettings.getStringOrNull("active_trip_id")
+                    val savedVehicle = secureSettings.getStringOrNull("active_vehicle_id")
                     if (savedTrip != null) {
                         tripId = savedTrip
                         
@@ -173,11 +174,9 @@ class LocationTrackingService : Service() {
                 val currentTrip = tripId
                 val finalDistance = currentDistanceMeters.toDouble()
                 tripId = null
-                prefs.edit()
-                    .remove("active_trip_id")
-                    .remove("active_vehicle_id")
-                    .remove("saved_distance_meters")
-                    .apply()
+                secureSettings.remove("active_trip_id")
+                secureSettings.remove("active_vehicle_id")
+                secureSettings.remove("saved_distance_meters")
 
                 serviceScope.launch(kotlinx.coroutines.NonCancellable) {
                     if (currentTrip != null) {
@@ -199,6 +198,7 @@ class LocationTrackingService : Service() {
                                 val syncResp = apiService.batchUploadLocations(currentTrip, messages)
                                 if (syncResp.isSuccessful) {
                                     locationPointDao.markAsSynced(pending.map { it.id })
+                                    locationPointDao.deleteSyncedByTrip(currentTrip)
                                     println("LocationService: [DIAG] Final batch sync successful (${pending.size} points)")
                                 } else {
                                     println("LocationService: [DIAG] Final batch sync failed: ${syncResp.code()}")
@@ -214,10 +214,8 @@ class LocationTrackingService : Service() {
                             println("LocationService: [DIAG] REST endTrip called successfully. distance=${finalDistance}m")
                         } catch (e: Exception) {
                             Log.e("LocationService", "REST endTrip failed, flagging for later sync", e)
-                            prefs.edit()
-                                .putString("pending_end_trip", currentTrip)
-                                .putFloat("pending_end_distance", finalDistance.toFloat())
-                                .apply()
+                            secureSettings.putString("pending_end_trip", currentTrip)
+                            secureSettings.putFloat("pending_end_distance", finalDistance.toFloat())
                         }
                     }
                     tripSessionManager.setTripInactive()
@@ -317,7 +315,18 @@ class LocationTrackingService : Service() {
 
     private fun processLocation(location: Location) {
         println("LocationService: [DIAG] processLocation called. lat=${location.latitude}, lng=${location.longitude}, provider=${location.provider}, accuracy=${if (location.hasAccuracy()) location.accuracy else -1f}")
-        
+
+        val isMockLocation = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            location.isMock
+        } else {
+            @Suppress("DEPRECATION")
+            location.isFromMockProvider
+        }
+        if (isMockLocation) {
+            println("LocationService: [DIAG] Filtered out mock location")
+            return
+        }
+
         // 1. Filter out 0.0, 0.0 (Maps Afrika bug)
         if (location.latitude == 0.0 && location.longitude == 0.0) {
             println("LocationService: [DIAG] Filtered out 0,0 coordinate")
@@ -361,7 +370,7 @@ class LocationTrackingService : Service() {
         val speedKmh = speedMps * 3.6f
 
         // Periodically persist distance in prefs
-        prefs.edit().putFloat("saved_distance_meters", currentDistanceMeters).apply()
+        secureSettings.putFloat("saved_distance_meters", currentDistanceMeters)
 
         tripSessionManager.updateStats(currentDistanceMeters, speedKmh, Pair(location.latitude, location.longitude))
 
@@ -419,6 +428,7 @@ class LocationTrackingService : Service() {
                             val resp = apiService.batchUploadLocations(tid, messages)
                             if (resp.isSuccessful) {
                                 locationPointDao.markAsSynced(pending.map { it.id })
+                                locationPointDao.deleteSyncedByTrip(tid)
                             }
                         }
                     } finally {

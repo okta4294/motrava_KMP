@@ -9,7 +9,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 class TokenManager(
-    private val settings: Settings
+    private val settings: Settings,
+    private val onClearLocalData: (() -> Unit)? = null
 ) {
     private val _loggedOutEvent = MutableSharedFlow<Unit>()
     val loggedOutEvent = _loggedOutEvent.asSharedFlow()
@@ -51,7 +52,14 @@ class TokenManager(
         settings.remove(REFRESH_TOKEN_KEY)
         settings.remove("last_selected_vehicle")
         settings.remove("user_name")
-        
+        settings.remove("active_trip_id")
+        settings.remove("active_vehicle_id")
+        settings.remove("saved_distance_meters")
+        settings.remove("pending_end_trip")
+        settings.remove("pending_end_distance")
+
+        onClearLocalData?.invoke()
+
         CoroutineScope(Dispatchers.Main).launch {
             _loggedOutEvent.emit(Unit)
         }

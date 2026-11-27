@@ -97,7 +97,7 @@ fun TripDetailScreen(
                     modifier = Modifier.padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    CircularProgressIndicator(color = AccentPeach)
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                     Spacer(modifier = Modifier.height(16.dp))
                     Text("Preparing high-quality map...", fontWeight = FontWeight.Medium)
                 }
@@ -114,7 +114,7 @@ fun TripDetailScreen(
                 ) {
                     CircularProgressIndicator(
                         progress = { videoExportProgress },
-                        color = AccentPeach,
+                        color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.padding(8.dp)
                     )
                     Spacer(modifier = Modifier.height(16.dp))
@@ -167,11 +167,23 @@ fun TripDetailScreen(
                     CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                 }
                 is TripDetailViewModel.TripDetailState.Error -> {
-                    Text(
-                        text = (state as TripDetailViewModel.TripDetailState.Error).message,
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.align(Alignment.Center)
-                    )
+                    Column(
+                        modifier = Modifier.align(Alignment.Center).padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            text = (state as TripDetailViewModel.TripDetailState.Error).message,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        OutlinedButton(
+                            onClick = { viewModel.fetchTripDetail(tripId) },
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text("Retry")
+                        }
+                    }
                 }
                 is TripDetailViewModel.TripDetailState.Success -> {
                     val trip = (state as TripDetailViewModel.TripDetailState.Success).trip
@@ -284,7 +296,7 @@ fun TripStatsCard(trip: TripDetailData, onOpenPosterEditor: (Boolean) -> Unit, o
     }
 
     val cardColor = MaterialTheme.colorScheme.surface
-    val borderColor = if (isDark) CardDarkBorder.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+    val borderColor = MaterialTheme.colorScheme.outlineVariant
 
     Surface(
         modifier = Modifier
@@ -292,8 +304,7 @@ fun TripStatsCard(trip: TripDetailData, onOpenPosterEditor: (Boolean) -> Unit, o
             .padding(horizontal = 16.dp, vertical = 12.dp)
             .border(1.dp, borderColor, RoundedCornerShape(16.dp)),
         shape = RoundedCornerShape(16.dp),
-        color = cardColor,
-        shadowElevation = if (isDark) 4.dp else 1.dp
+        color = cardColor
     ) {
         Column(
             modifier = Modifier
@@ -312,15 +323,15 @@ fun TripStatsCard(trip: TripDetailData, onOpenPosterEditor: (Boolean) -> Unit, o
                 ) {
                     Surface(
                         shape = RoundedCornerShape(10.dp),
-                        color = GradientPurple.copy(alpha = 0.12f),
-                        modifier = Modifier.size(40.dp)
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        modifier = Modifier.size(38.dp)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
                                 imageVector = Icons.Default.TwoWheeler,
                                 contentDescription = null,
-                                tint = GradientPurple,
-                                modifier = Modifier.size(22.dp)
+                                tint = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.size(20.dp)
                             )
                         }
                     }
@@ -328,7 +339,7 @@ fun TripStatsCard(trip: TripDetailData, onOpenPosterEditor: (Boolean) -> Unit, o
                         Text(
                             text = trip.vehicleName ?: "Vehicle",
                             style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
+                            fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         if (!trip.plateNumber.isNullOrEmpty()) {
@@ -344,14 +355,14 @@ fun TripStatsCard(trip: TripDetailData, onOpenPosterEditor: (Boolean) -> Unit, o
 
                 // Status pill
                 Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = AccentGreen.copy(alpha = 0.15f)
+                    shape = RoundedCornerShape(6.dp),
+                    color = MaterialTheme.colorScheme.secondaryContainer
                 ) {
                     Text(
                         text = "Completed",
                         style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = AccentGreen,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                     )
                 }
@@ -381,7 +392,7 @@ fun TripStatsCard(trip: TripDetailData, onOpenPosterEditor: (Boolean) -> Unit, o
                 MetricTile(
                     modifier = Modifier.weight(1f),
                     icon = Icons.Default.Route,
-                    iconTint = GradientPurple,
+                    iconTint = MaterialTheme.colorScheme.primary,
                     label = "Distance",
                     value = distStr,
                     isDark = isDark
@@ -389,7 +400,7 @@ fun TripStatsCard(trip: TripDetailData, onOpenPosterEditor: (Boolean) -> Unit, o
                 MetricTile(
                     modifier = Modifier.weight(1f),
                     icon = Icons.Default.Speed,
-                    iconTint = AccentPeach,
+                    iconTint = MaterialTheme.colorScheme.onSurfaceVariant,
                     label = "Avg Speed",
                     value = speedStr,
                     isDark = isDark
@@ -397,7 +408,7 @@ fun TripStatsCard(trip: TripDetailData, onOpenPosterEditor: (Boolean) -> Unit, o
                 MetricTile(
                     modifier = Modifier.weight(1f),
                     icon = Icons.Default.Schedule,
-                    iconTint = AccentPeach,
+                    iconTint = MaterialTheme.colorScheme.onSurfaceVariant,
                     label = "Duration",
                     value = durStr,
                     isDark = isDark
@@ -405,14 +416,12 @@ fun TripStatsCard(trip: TripDetailData, onOpenPosterEditor: (Boolean) -> Unit, o
             }
 
             if (trip.maximumSpeed != null && trip.maximumSpeed > 0) {
-                Spacer(modifier = Modifier.height(8.dp))
-                val topSpeedBg = if (isDark) Color(0xFF1E2030) else Color(0xFFFFF8F5)
-                val topSpeedBorder = if (isDark) CardDarkBorder.copy(alpha = 0.4f) else AccentPeach.copy(alpha = 0.25f)
+                Spacer(modifier = Modifier.height(10.dp))
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .border(1.dp, topSpeedBorder, RoundedCornerShape(12.dp))
-                        .background(topSpeedBg, RoundedCornerShape(12.dp))
+                        .border(1.dp, borderColor, RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
                         .padding(horizontal = 12.dp, vertical = 9.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
@@ -424,25 +433,25 @@ fun TripStatsCard(trip: TripDetailData, onOpenPosterEditor: (Boolean) -> Unit, o
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.TrendingUp,
                             contentDescription = null,
-                            tint = AccentPeach,
-                            modifier = Modifier.size(18.dp)
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(17.dp)
                         )
                         Text(
                             text = "Top Recorded Speed",
                             style = MaterialTheme.typography.bodySmall,
-                            color = if (isDark) TextMuted else TextDarkMuted
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                     Text(
                         text = "%.1f km/h".format(trip.maximumSpeed),
                         style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = if (isDark) Color.White else TextDark
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(18.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             // Action Buttons: Poster & Video
             Row(
@@ -452,35 +461,38 @@ fun TripStatsCard(trip: TripDetailData, onOpenPosterEditor: (Boolean) -> Unit, o
                 Button(
                     onClick = { onOpenPosterEditor(false) },
                     modifier = Modifier.weight(1f).height(48.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = AccentPeach, contentColor = Color.White),
-                    shape = RoundedCornerShape(14.dp)
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    ),
+                    shape = RoundedCornerShape(12.dp)
                 ) {
                     Icon(Icons.Default.PhotoLibrary, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Poster", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    Text("Poster", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                 }
                 OutlinedButton(
                     onClick = { onExportVideo() },
                     modifier = Modifier.weight(1f).height(48.dp),
                     colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = if (isDark) Color.White else TextDark
+                        contentColor = MaterialTheme.colorScheme.onSurface
                     ),
                     border = androidx.compose.foundation.BorderStroke(1.dp, borderColor),
-                    shape = RoundedCornerShape(14.dp)
+                    shape = RoundedCornerShape(12.dp)
                 ) {
-                    Icon(Icons.Default.Videocam, contentDescription = null, tint = AccentPeach, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Default.Videocam, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Video", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    Text("Video", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(6.dp))
 
             // Delete action
             TextButton(
                 onClick = { showDeleteDialog = true },
                 modifier = Modifier.align(Alignment.CenterHorizontally),
-                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error.copy(alpha = 0.8f))
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error.copy(alpha = 0.85f))
             ) {
                 Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(6.dp))
@@ -499,47 +511,34 @@ fun MetricTile(
     value: String,
     isDark: Boolean = true
 ) {
-    val tileBg = if (isDark) Color(0xFF1E2235) else Color(0xFFF8FAFC)
-    val tileBorder = if (isDark) CardDarkBorder.copy(alpha = 0.5f) else Color(0xFFE2E8F0)
-
-    Surface(
-        modifier = modifier.border(1.dp, tileBorder, RoundedCornerShape(14.dp)),
-        shape = RoundedCornerShape(14.dp),
-        color = tileBg
+    Column(
+        modifier = modifier.padding(vertical = 4.dp),
+        horizontalAlignment = Alignment.Start
     ) {
-        Column(
-            modifier = Modifier.padding(10.dp),
-            horizontalAlignment = Alignment.Start
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            // Icon badge
-            Box(
-                modifier = Modifier
-                    .size(28.dp)
-                    .background(iconTint.copy(alpha = if (isDark) 0.15f else 0.10f), RoundedCornerShape(8.dp)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = iconTint,
-                    modifier = Modifier.size(15.dp)
-                )
-            }
-            Spacer(modifier = Modifier.height(8.dp))
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = iconTint,
+                modifier = Modifier.size(14.dp)
+            )
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelSmall,
-                color = if (isDark) TextMuted else TextDarkMuted,
-                maxLines = 1
-            )
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = value,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-                color = if (isDark) Color.White else TextDark,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1
             )
         }
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = value,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1
+        )
     }
 }

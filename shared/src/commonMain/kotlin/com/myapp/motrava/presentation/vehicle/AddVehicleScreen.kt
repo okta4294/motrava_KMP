@@ -76,14 +76,16 @@ fun AddVehicleScreen(
     }
 
     // Input field styling
-    val inputShape = RoundedCornerShape(16.dp)
+    val inputShape = RoundedCornerShape(12.dp)
     val inputColors = OutlinedTextFieldDefaults.colors(
-        focusedBorderColor = GradientPurple,
+        focusedBorderColor = MaterialTheme.colorScheme.primary,
         unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
-        focusedLabelColor = GradientPurple,
+        focusedLabelColor = MaterialTheme.colorScheme.primary,
         unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-        cursorColor = GradientPurple
+        cursorColor = MaterialTheme.colorScheme.primary
     )
+    val yearParsed = year.toIntOrNull()
+    val isYearInvalid = year.isNotBlank() && (yearParsed == null || yearParsed !in 1950..2100)
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -124,9 +126,10 @@ fun AddVehicleScreen(
             OutlinedTextField(
                 value = vehicleName,
                 onValueChange = { vehicleName = it },
-                label = { Text("Vehicle Name") },
+                label = { Text("Vehicle Name *") },
                 placeholder = { Text("e.g., My Daily Car") },
                 modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
                 shape = inputShape,
                 colors = inputColors
             )
@@ -134,8 +137,10 @@ fun AddVehicleScreen(
             OutlinedTextField(
                 value = plateNumber,
                 onValueChange = { plateNumber = it },
-                label = { Text("Plate Number") },
+                label = { Text("Plate Number *") },
+                placeholder = { Text("e.g., B 1234 ABC") },
                 modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
                 shape = inputShape,
                 colors = inputColors
             )
@@ -171,9 +176,13 @@ fun AddVehicleScreen(
                 OutlinedTextField(
                     value = year,
                     onValueChange = { year = it },
-                    label = { Text("Year") },
+                    label = { Text("Year *") },
+                    placeholder = { Text("2024") },
+                    isError = isYearInvalid,
+                    supportingText = if (isYearInvalid) { { Text("Enter a valid year") } } else null,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.weight(1f),
+                    singleLine = true,
                     shape = inputShape,
                     colors = inputColors
                 )
@@ -206,7 +215,7 @@ fun AddVehicleScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 OutlinedTextField(
-                    value = selectedType,
+                    value = if (selectedType.equals("MOTORCYCLE", ignoreCase = true)) "Motorcycle" else "Car",
                     onValueChange = {},
                     readOnly = true,
                     label = { Text("Vehicle Type") },
@@ -221,7 +230,7 @@ fun AddVehicleScreen(
                 ) {
                     vehicleTypes.forEach { type ->
                         DropdownMenuItem(
-                            text = { Text(type) },
+                            text = { Text(if (type == "MOTORCYCLE") "Motorcycle" else "Car") },
                             onClick = {
                                 selectedType = type
                                 expanded = false
@@ -229,6 +238,14 @@ fun AddVehicleScreen(
                         )
                     }
                 }
+            }
+
+            if (vehicleName.isBlank() || plateNumber.isBlank() || year.isBlank()) {
+                Text(
+                    text = "Fields marked with * are required",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall
+                )
             }
 
             if (createState is VehicleViewModel.CreateVehicleState.Error) {
@@ -243,7 +260,7 @@ fun AddVehicleScreen(
 
             Button(
                 onClick = {
-                    val yearInt = year.toIntOrNull() ?: 2023
+                    val yearInt = yearParsed ?: return@Button
                     val avgBbmDouble = avgBbm.replace(",", ".").toDoubleOrNull()
                     val initialKmDouble = initialKm.replace(",", ".").toDoubleOrNull()
                     if (vehicleId != null) {
@@ -275,13 +292,14 @@ fun AddVehicleScreen(
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp),
-                shape = RoundedCornerShape(14.dp),
+                    .height(52.dp),
+                shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = AccentPeach,
-                    contentColor = Color.White
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
                 ),
-                enabled = vehicleName.isNotBlank() && plateNumber.isNotBlank() && 
+                enabled = vehicleName.isNotBlank() && plateNumber.isNotBlank() &&
+                          yearParsed != null && !isYearInvalid &&
                           createState !is VehicleViewModel.CreateVehicleState.Loading
             ) {
                 if (createState is VehicleViewModel.CreateVehicleState.Loading) {

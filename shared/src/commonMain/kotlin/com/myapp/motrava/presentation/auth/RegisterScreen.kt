@@ -74,21 +74,6 @@ fun RegisterScreen(
         color = MaterialTheme.colorScheme.background
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            // Top ambient gradient
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(240.dp)
-                    .background(
-                        brush = Brush.verticalGradient(
-                            colors = listOf(
-                                MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
-                                Color.Transparent
-                            )
-                        )
-                    )
-            )
-
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -97,27 +82,28 @@ fun RegisterScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                Spacer(modifier = Modifier.height(48.dp))
+                Spacer(modifier = Modifier.height(40.dp))
 
                 // App Logo
                 Image(
                     painter = org.jetbrains.compose.resources.painterResource(motravakmp.shared.generated.resources.Res.drawable.logo),
                     contentDescription = "Motrava Logo",
-                    modifier = Modifier.size(100.dp)
+                    modifier = Modifier.size(72.dp)
                 )
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(20.dp))
 
                 Text(
                     text = "Create Account",
-                    style = MaterialTheme.typography.headlineLarge,
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onBackground
                 )
                 Text(
-                    text = "Join the Motrava community today",
-                    style = MaterialTheme.typography.bodyLarge,
+                    text = "Set up your garage and trip log",
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 8.dp, bottom = 32.dp)
+                    modifier = Modifier.padding(top = 6.dp, bottom = 28.dp)
                 )
 
                 if (authState is AuthState.Error) {
@@ -129,17 +115,15 @@ fun RegisterScreen(
                     )
                 }
 
-                // Register Card
-                ElevatedCard(
+                // Minimalist Flat Register Card
+                Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(24.dp),
-                    elevation = CardDefaults.elevatedCardElevation(defaultElevation = 4.dp),
-                    colors = CardDefaults.elevatedCardColors(
-                        containerColor = MaterialTheme.colorScheme.surface
-                    )
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surface,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                 ) {
                     Column(
-                        modifier = Modifier.padding(24.dp)
+                        modifier = Modifier.padding(20.dp)
                     ) {
                         // 1. Primary Option at Top: Social Login Buttons
                         SocialLoginButtonsSection(
@@ -180,17 +164,17 @@ fun RegisterScreen(
                                 onClick = { isEmailFormExpanded = true },
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(56.dp),
-                                shape = RoundedCornerShape(16.dp),
-                                border = BorderStroke(1.dp, GradientPurple.copy(alpha = 0.5f)),
+                                    .height(52.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                                 colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = GradientPurple
+                                    contentColor = MaterialTheme.colorScheme.onSurface
                                 )
                             ) {
-                                Icon(Icons.Default.Email, contentDescription = null, tint = GradientPurple, modifier = Modifier.padding(end = 12.dp))
-                                Text("Continue with Email", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                                Icon(Icons.Default.Email, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(end = 12.dp))
+                                Text("Continue with Email", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium)
                                 Spacer(modifier = Modifier.weight(1f))
-                                Icon(Icons.Default.ExpandMore, contentDescription = null, tint = GradientPurple)
+                                Icon(Icons.Default.ExpandMore, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
 
@@ -205,43 +189,43 @@ fun RegisterScreen(
                                     onValueChange = { name = it },
                                     label = { Text("Full Name") },
                                     placeholder = { Text("Enter your name") },
-                                    leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = GradientPurple) },
+                                    leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                                     modifier = Modifier.fillMaxWidth(),
                                     singleLine = true,
-                                    shape = RoundedCornerShape(16.dp),
+                                    shape = RoundedCornerShape(12.dp),
                                     colors = OutlinedTextFieldDefaults.colors(
-                                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                                        focusedBorderColor = GradientPurple,
-                                        focusedLabelColor = GradientPink
+                                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                        focusedLabelColor = MaterialTheme.colorScheme.primary
                                     )
                                 )
 
-                                Spacer(modifier = Modifier.height(16.dp))
+                                Spacer(modifier = Modifier.height(14.dp))
 
                                 OutlinedTextField(
                                     value = email,
                                     onValueChange = { email = it },
                                     label = { Text("Email Address") },
                                     placeholder = { Text("example@mail.com") },
-                                    leadingIcon = { Icon(Icons.Default.Email, contentDescription = null, tint = GradientPurple) },
+                                    leadingIcon = { Icon(Icons.Default.Email, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                                     modifier = Modifier.fillMaxWidth(),
                                     singleLine = true,
-                                    shape = RoundedCornerShape(16.dp),
+                                    shape = RoundedCornerShape(12.dp),
                                     colors = OutlinedTextFieldDefaults.colors(
-                                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                                        focusedBorderColor = GradientPurple,
-                                        focusedLabelColor = GradientPink
+                                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                        focusedLabelColor = MaterialTheme.colorScheme.primary
                                     )
                                 )
 
-                                Spacer(modifier = Modifier.height(16.dp))
+                                Spacer(modifier = Modifier.height(14.dp))
 
                                 OutlinedTextField(
                                     value = password,
                                     onValueChange = { password = it },
                                     label = { Text("Password") },
-                                    leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = GradientPurple) },
+                                    leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                                     trailingIcon = {
                                         val image = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff
                                         IconButton(onClick = { passwordVisible = !passwordVisible }) {
@@ -252,11 +236,11 @@ fun RegisterScreen(
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                                     modifier = Modifier.fillMaxWidth(),
                                     singleLine = true,
-                                    shape = RoundedCornerShape(16.dp),
+                                    shape = RoundedCornerShape(12.dp),
                                     colors = OutlinedTextFieldDefaults.colors(
-                                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                                        focusedBorderColor = GradientPurple,
-                                        focusedLabelColor = GradientPink
+                                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                        focusedLabelColor = MaterialTheme.colorScheme.primary
                                     )
                                 )
 
@@ -273,22 +257,22 @@ fun RegisterScreen(
                                     }
                                 }
 
-                                Spacer(modifier = Modifier.height(16.dp))
+                                Spacer(modifier = Modifier.height(12.dp))
 
                                 Button(
                                     onClick = { authViewModel.registerWithEmail(name, email, password) },
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .height(56.dp),
-                                    shape = RoundedCornerShape(16.dp),
+                                        .height(52.dp),
+                                    shape = RoundedCornerShape(12.dp),
                                     colors = ButtonDefaults.buttonColors(
-                                        containerColor = GradientPurple,
-                                        contentColor = Color.White
+                                        containerColor = MaterialTheme.colorScheme.primary,
+                                        contentColor = MaterialTheme.colorScheme.onPrimary
                                     ),
                                     enabled = authState !is AuthState.Loading
                                 ) {
                                     if (authState is AuthState.Loading) {
-                                        CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Color.White)
+                                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
                                     } else {
                                         Text("Register", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                                     }
@@ -298,14 +282,14 @@ fun RegisterScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(32.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Already have an account?", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onBackground)
+                    Text("Already have an account?", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     TextButton(onClick = onNavigateToLogin) {
-                        Text("Login", fontWeight = FontWeight.Bold, color = GradientPurple)
+                        Text("Login", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
                     }
                 }
                 

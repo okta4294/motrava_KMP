@@ -74,8 +74,8 @@ fun TrackingScreen(
     
     var centerTrigger by remember { mutableStateOf(0) }
     
-    val isDarkTheme = MaterialTheme.colorScheme.background.red < 0.5f
-    val highlightColor = if (isDarkTheme) AccentYellowBright else GradientPurple
+    val highlightColor = MaterialTheme.colorScheme.onSurface
+    val primaryAccent = MaterialTheme.colorScheme.primary
 
     Box(modifier = Modifier.fillMaxSize()) {
         // MapLibre View
@@ -133,7 +133,7 @@ fun TrackingScreen(
                         modifier = Modifier
                             .size(9.dp)
                             .clip(CircleShape)
-                            .background(ActivePink)
+                            .background(MaterialTheme.colorScheme.error)
                     )
                 }
 
@@ -183,7 +183,7 @@ fun TrackingScreen(
                         Icon(
                             imageVector = Icons.Default.Route,
                             contentDescription = "Distance",
-                            tint = GradientPurple,
+                            tint = primaryAccent,
                             modifier = Modifier.size(18.dp)
                         )
                         Text(
@@ -218,7 +218,7 @@ fun TrackingScreen(
                         modifier = Modifier.fillMaxWidth().padding(24.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        CircularProgressIndicator(color = AccentPeach)
+                        CircularProgressIndicator(color = primaryAccent)
                     }
                 }
             } else if (tripState is TripViewModel.TripState.Error) {
@@ -304,7 +304,7 @@ fun TrackingScreen(
                                 is VehicleViewModel.VehiclesState.Loading -> {
                                     CircularProgressIndicator(
                                         modifier = Modifier.size(24.dp).padding(8.dp),
-                                        color = AccentPeach,
+                                        color = primaryAccent,
                                         strokeWidth = 2.dp
                                     )
                                 }
@@ -312,7 +312,7 @@ fun TrackingScreen(
                                     val vehicles = (vehiclesState as VehicleViewModel.VehiclesState.Success).vehicles
                                     if (vehicles.isEmpty()) {
                                         TextButton(onClick = onNavigateToAddVehicle) {
-                                            Text("Add Vehicle", color = AccentPeach, fontWeight = FontWeight.SemiBold)
+                                            Text("Add Vehicle", color = primaryAccent, fontWeight = FontWeight.SemiBold)
                                         }
                                     } else {
                                         if (selectedVehicleId == null) {
@@ -431,7 +431,7 @@ fun TrackingScreen(
 
                         Spacer(modifier = Modifier.width(12.dp))
 
-                        // Start button (circular peach)
+                        // Start button (minimalist signal orange)
                         val hasVehicles = (vehiclesState as? VehicleViewModel.VehiclesState.Success)?.vehicles?.isNotEmpty() == true
                         val targetId = selectedVehicleId ?: activeVehicleId
                         FloatingActionButton(
@@ -440,11 +440,11 @@ fun TrackingScreen(
                                     tripViewModel.startTrip(targetId)
                                 }
                             },
-                            containerColor = AccentPeach,
-                            contentColor = Color.White,
+                            containerColor = primaryAccent,
+                            contentColor = MaterialTheme.colorScheme.onPrimary,
                             shape = CircleShape,
-                            modifier = Modifier.size(56.dp),
-                            elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 4.dp)
+                            modifier = Modifier.size(54.dp),
+                            elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 2.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.PlayArrow,
@@ -528,12 +528,12 @@ fun HoldToStopButton(
         CircularProgressIndicator(
             progress = { progress },
             modifier = Modifier.fillMaxSize(),
-            color = ActivePink,
+            color = MaterialTheme.colorScheme.error,
             strokeWidth = 6.dp
         )
         Surface(
             shape = CircleShape,
-            color = ActivePink,
+            color = MaterialTheme.colorScheme.error,
             shadowElevation = 6.dp,
             modifier = Modifier
                 .padding(8.dp)

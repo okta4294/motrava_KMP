@@ -41,11 +41,42 @@ import com.myapp.motrava.presentation.vehicle.VehicleViewModel
 fun ProfileScreen(
     onNavigateToAddVehicle: () -> Unit = {},
     onNavigateToEditVehicle: (String) -> Unit = {},
+    onLogout: () -> Unit = {},
     viewModel: ProfileViewModel = koinViewModel(),
     vehicleViewModel: VehicleViewModel = koinViewModel()
 ) {
     val profileState by viewModel.userState.collectAsState()
     val vehiclesState by vehicleViewModel.vehiclesState.collectAsState()
+    var showLogoutDialog by remember { mutableStateOf(false) }
+
+    if (showLogoutDialog) {
+        AlertDialog(
+            onDismissRequest = { showLogoutDialog = false },
+            title = { Text("Log Out", fontWeight = FontWeight.SemiBold) },
+            text = { Text("Are you sure you want to log out? Any active trip tracking on this device will be stopped.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showLogoutDialog = false
+                        onLogout()
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
+                    )
+                ) {
+                    Text("Log Out")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLogoutDialog = false }) {
+                    Text("Cancel")
+                }
+            },
+            shape = RoundedCornerShape(16.dp),
+            containerColor = MaterialTheme.colorScheme.surface
+        )
+    }
 
     LaunchedEffect(Unit) {
         vehicleViewModel.fetchVehicles()
@@ -55,7 +86,7 @@ fun ProfileScreen(
         modifier = Modifier
             .fillMaxSize()
             .padding(horizontal = 20.dp),
-        contentPadding = PaddingValues(top = 8.dp, bottom = 180.dp),
+        contentPadding = PaddingValues(top = 8.dp, bottom = 120.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         // Profile Header (centered)
@@ -68,16 +99,16 @@ fun ProfileScreen(
             ) {
                 val user = (profileState as? ProfileState.Success)?.user
                 
-                // Avatar with purple border ring
+                // Minimalist avatar with hairline border
                 Box(
                     modifier = Modifier
-                        .size(108.dp)
+                        .size(92.dp)
                         .border(
-                            width = 3.dp,
-                            color = GradientPurple,
+                            width = 1.dp,
+                            color = MaterialTheme.colorScheme.outlineVariant,
                             shape = CircleShape
                         )
-                        .padding(6.dp),
+                        .padding(4.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Surface(
@@ -98,18 +129,18 @@ fun ProfileScreen(
                                     imageVector = Icons.Default.Person,
                                     contentDescription = "Avatar",
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(56.dp)
+                                    modifier = Modifier.size(44.dp)
                                 )
                             }
                         }
                     }
                 }
                 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(14.dp))
                 
                 when (profileState) {
                     is ProfileState.Loading -> {
-                        CircularProgressIndicator(modifier = Modifier.size(24.dp), color = GradientPurple)
+                        CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.primary)
                     }
                     is ProfileState.Success -> {
                         val user = (profileState as ProfileState.Success).user
@@ -139,12 +170,11 @@ fun ProfileScreen(
 
         // Vehicle Info Card
         item {
-            Card(
+            Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                color = MaterialTheme.colorScheme.surface,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
             ) {
                 Column(modifier = Modifier.padding(20.dp)) {
                     Row(
@@ -153,19 +183,20 @@ fun ProfileScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Vehicle Info",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            text = "Vehicles",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         TextButton(onClick = onNavigateToAddVehicle) {
-                            Text("Add Vehicle", color = GradientPurple, fontWeight = FontWeight.SemiBold)
+                            Text("Add Vehicle", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
                         }
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                     
                     when (vehiclesState) {
                         is VehicleViewModel.VehiclesState.Loading -> {
-                            CircularProgressIndicator(modifier = Modifier.padding(16.dp).size(24.dp), color = GradientPurple)
+                            CircularProgressIndicator(modifier = Modifier.padding(16.dp).size(22.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.primary)
                         }
                         is VehicleViewModel.VehiclesState.Success -> {
                             val vehicles = (vehiclesState as VehicleViewModel.VehiclesState.Success).vehicles
@@ -203,11 +234,10 @@ fun ProfileScreen(
                                         modifier = Modifier.fillMaxWidth(),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        // Vehicle icon in colored circle
                                         Surface(
-                                            shape = CircleShape,
-                                            color = GradientPurple.copy(alpha = 0.12f),
-                                            modifier = Modifier.size(44.dp)
+                                            shape = RoundedCornerShape(10.dp),
+                                            color = MaterialTheme.colorScheme.surfaceVariant,
+                                            modifier = Modifier.size(40.dp)
                                         ) {
                                             Box(contentAlignment = Alignment.Center) {
                                                 Icon(
@@ -218,7 +248,7 @@ fun ProfileScreen(
                                                     },
                                                     contentDescription = null,
                                                     modifier = Modifier.size(20.dp),
-                                                    tint = GradientPurple
+                                                    tint = MaterialTheme.colorScheme.onSurface
                                                 )
                                             }
                                         }
@@ -230,12 +260,12 @@ fun ProfileScreen(
                                         ) {
                                             Text(
                                                 vehicle.vehicleName,
-                                                style = MaterialTheme.typography.titleMedium,
+                                                style = MaterialTheme.typography.titleSmall,
                                                 fontWeight = FontWeight.SemiBold,
                                                 color = MaterialTheme.colorScheme.onSurface
                                             )
                                             Text(
-                                                "${vehicle.brand} ${vehicle.model} - ${vehicle.plateNumber}\nTotal: %.1f km".format(distance),
+                                                "${vehicle.brand} ${vehicle.model} • ${vehicle.plateNumber}\n%.1f km".format(distance),
                                                 style = MaterialTheme.typography.bodySmall,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
@@ -245,16 +275,16 @@ fun ProfileScreen(
                                             Icon(
                                                 Icons.Default.Edit,
                                                 contentDescription = "Edit Vehicle",
-                                                tint = GradientPurple,
-                                                modifier = Modifier.size(20.dp)
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.size(19.dp)
                                             )
                                         }
                                         IconButton(onClick = { showDeleteDialog = true }) {
                                             Icon(
                                                 Icons.Default.Delete,
                                                 contentDescription = "Delete Vehicle",
-                                                tint = MaterialTheme.colorScheme.error,
-                                                modifier = Modifier.size(20.dp)
+                                                tint = MaterialTheme.colorScheme.error.copy(alpha = 0.85f),
+                                                modifier = Modifier.size(19.dp)
                                             )
                                         }
                                     }
@@ -274,13 +304,31 @@ fun ProfileScreen(
                     }
                 }
             }
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(16.dp))
+            OutlinedButton(
+                onClick = { showLogoutDialog = true },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.4f)),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = MaterialTheme.colorScheme.error
+                )
+            ) {
+                Text(
+                    text = "Log Out",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+            Spacer(modifier = Modifier.height(16.dp))
             Box(
-                modifier = Modifier.fillMaxWidth().padding(bottom = 32.dp),
+                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "Motrava v2.1",
+                    text = "Motrava v2.2",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                 )

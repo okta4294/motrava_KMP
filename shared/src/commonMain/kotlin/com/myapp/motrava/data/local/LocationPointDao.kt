@@ -20,4 +20,7 @@ interface LocationPointDao {
 
     @Query("DELETE FROM location_points WHERE tripId = :tripId AND isSynced = 1")
     fun deleteSyncedByTrip(tripId: String)
+
+    @Query("DELETE FROM location_points")
+    fun deleteAll()
 }

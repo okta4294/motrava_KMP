@@ -128,12 +128,24 @@ fun MotravaApp(isDarkMode: Boolean, onThemeToggle: () -> Unit) {
                 exit = fadeOut()
             ) {
                 TopAppBar(
-                    title = { 
-                        Text(
-                            text = "Motrava", 
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        ) 
+                    title = {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .clip(RoundedCornerShape(2.dp))
+                                    .background(MaterialTheme.colorScheme.primary)
+                            )
+                            Text(
+                                text = "Motrava",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
+                        }
                     },
                     actions = {
                         IconButton(onClick = onThemeToggle) {
@@ -149,21 +161,6 @@ fun MotravaApp(isDarkMode: Boolean, onThemeToggle: () -> Unit) {
                                 contentDescription = "Notifications",
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                        }
-                        if (isLoggedIn) {
-                            IconButton(onClick = {
-                                isLoggedIn = false
-                                tokenManager.clearTokens()
-                                navController.navigate(Screen.Login.route) {
-                                    popUpTo(navController.graph.id) { inclusive = true }
-                                }
-                            }) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.Logout,
-                                    contentDescription = "Logout",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
@@ -259,7 +256,14 @@ fun MotravaApp(isDarkMode: Boolean, onThemeToggle: () -> Unit) {
             composable(Screen.Profile.route) { 
                 ProfileScreen(
                     onNavigateToAddVehicle = { navController.navigate(Screen.AddVehicle.route) },
-                    onNavigateToEditVehicle = { id -> navController.navigate(Screen.EditVehicle.createRoute(id)) }
+                    onNavigateToEditVehicle = { id -> navController.navigate(Screen.EditVehicle.createRoute(id)) },
+                    onLogout = {
+                        isLoggedIn = false
+                        tokenManager.clearTokens()
+                        navController.navigate(Screen.Login.route) {
+                            popUpTo(navController.graph.id) { inclusive = true }
+                        }
+                    }
                 ) 
             }
             composable(Screen.AddVehicle.route) { 

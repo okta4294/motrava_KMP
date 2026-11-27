@@ -28,11 +28,14 @@ class AuthRepository(
                     AuthResult.Error("Login Failed: " + msg)
                 }
             } else {
-                val errorBody = response.errorBody()?.string() ?: ""
-                AuthResult.Error("Google Login Failed: " + response.code() + " " + errorBody)
+                val msg = when (response.code()) {
+                    401, 403 -> "Google Sign-In failed. Please try again."
+                    else -> "Google Sign-In failed (HTTP ${response.code()})."
+                }
+                AuthResult.Error(msg)
             }
         } catch (e: Exception) {
-            AuthResult.Error(e.localizedMessage ?: "Unknown error occurred")
+            AuthResult.Error("Unable to reach server. Please check your connection.")
         }
     }
 
@@ -48,15 +51,18 @@ class AuthRepository(
                     tokenManager.userName = user.name
                     AuthResult.Success(user)
                 } else {
-                    val msg = body.message ?: "No token returned"
-                    AuthResult.Error("Login Failed: " + msg)
+                    AuthResult.Error("Invalid email or password.")
                 }
             } else {
-                val errorBody = response.errorBody()?.string() ?: ""
-                AuthResult.Error("Login Failed: " + response.code() + " " + errorBody)
+                val msg = when (response.code()) {
+                    400, 401, 403, 404 -> "Invalid email or password."
+                    429 -> "Too many attempts. Please try again later."
+                    else -> "Login failed (HTTP ${response.code()})."
+                }
+                AuthResult.Error(msg)
             }
         } catch (e: Exception) {
-            AuthResult.Error(e.localizedMessage ?: "Unknown error occurred")
+            AuthResult.Error("Unable to reach server. Please check your connection.")
         }
     }
 
@@ -72,15 +78,19 @@ class AuthRepository(
                     tokenManager.userName = user.name
                     AuthResult.Success(user)
                 } else {
-                    val msg = body.message ?: "No token returned"
-                    AuthResult.Error("Register Failed: " + msg)
+                    AuthResult.Error("Registration failed. Please check your details.")
                 }
             } else {
-                val errorBody = response.errorBody()?.string() ?: ""
-                AuthResult.Error("Register Failed: " + response.code() + " " + errorBody)
+                val msg = when (response.code()) {
+                    400 -> "Please check your registration details."
+                    409 -> "Registration could not be completed. Please check your email."
+                    429 -> "Too many attempts. Please try again later."
+                    else -> "Registration failed (HTTP ${response.code()})."
+                }
+                AuthResult.Error(msg)
             }
         } catch (e: Exception) {
-            AuthResult.Error(e.localizedMessage ?: "Unknown error occurred")
+            AuthResult.Error("Unable to reach server. Please check your connection.")
         }
     }
 

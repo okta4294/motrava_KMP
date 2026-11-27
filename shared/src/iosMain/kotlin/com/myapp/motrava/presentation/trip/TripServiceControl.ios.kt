@@ -19,3 +19,7 @@ actual fun startTripService(tripId: String, vehicleId: String) {
 actual fun stopTripService() {
     locationManager.stopUpdatingLocation()
 }
+
+actual fun clearTripServiceSession() {
+    locationManager.stopUpdatingLocation()
+}

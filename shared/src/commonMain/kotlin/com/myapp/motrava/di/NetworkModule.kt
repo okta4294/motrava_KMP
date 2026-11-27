@@ -39,9 +39,12 @@ val networkModule = module {
                 val token = tokenManager.accessToken
                 
                 val path = url.encodedPath
-                val isAuthRefresh = path.contains("auth/refresh")
-                
-                if (token != null && !isAuthRefresh) {
+                val isPublicAuthEndpoint = path.contains("auth/refresh") ||
+                    path.contains("auth/login") ||
+                    path.contains("auth/register") ||
+                    path.contains("auth/google")
+
+                if (token != null && !isPublicAuthEndpoint) {
                     header("Authorization", "Bearer $token")
                 }
             }

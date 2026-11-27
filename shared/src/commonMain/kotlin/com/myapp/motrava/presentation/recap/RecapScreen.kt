@@ -123,7 +123,7 @@ fun RecapScreen(
                     modifier = Modifier.padding(28.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    CircularProgressIndicator(color = GradientPurple, strokeWidth = 3.dp)
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary, strokeWidth = 3.dp)
                     Spacer(modifier = Modifier.height(18.dp))
                     Text(
                         "Rendering Map Snapshot...",
@@ -155,7 +155,7 @@ fun RecapScreen(
                 ) {
                     CircularProgressIndicator(
                         progress = { videoExportProgress },
-                        color = GradientPink,
+                        color = MaterialTheme.colorScheme.primary,
                         strokeWidth = 4.dp,
                         modifier = Modifier.size(52.dp)
                     )
@@ -176,8 +176,8 @@ fun RecapScreen(
         }
     }
 
-    val cardBg = if (isDarkTheme) CardDark else MaterialTheme.colorScheme.surface
-    val subtleBorderColor = if (isDarkTheme) Color(0xFF383D4E) else Color(0xFFE2E8F0)
+    val cardBg = MaterialTheme.colorScheme.surface
+    val subtleBorderColor = MaterialTheme.colorScheme.outlineVariant
 
     Scaffold(
         topBar = {
@@ -216,14 +216,14 @@ fun RecapScreen(
         ) {
             Spacer(modifier = Modifier.height(8.dp))
 
-            // ── 1. Modern Segmented Pill Toggle (Monthly vs Yearly) ──
+            // ── 1. Minimalist Segmented Pill Toggle (Monthly vs Yearly) ──
             Surface(
-                shape = RoundedCornerShape(16.dp),
-                color = if (isDarkTheme) CardDark.copy(alpha = 0.65f) else LightCardSurface,
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(46.dp)
-                    .border(1.dp, subtleBorderColor, RoundedCornerShape(16.dp))
+                    .height(44.dp)
+                    .border(1.dp, subtleBorderColor, RoundedCornerShape(12.dp))
             ) {
                 Row(
                     modifier = Modifier
@@ -236,14 +236,8 @@ fun RecapScreen(
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxHeight()
-                            .clip(RoundedCornerShape(13.dp))
-                            .then(
-                                if (!isYearlyMode) {
-                                    Modifier.background(
-                                        Brush.horizontalGradient(listOf(GradientPurple, GradientPink))
-                                    )
-                                } else Modifier
-                            )
+                            .clip(RoundedCornerShape(9.dp))
+                            .background(if (!isYearlyMode) MaterialTheme.colorScheme.primary else Color.Transparent)
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },
                                 indication = null
@@ -251,10 +245,10 @@ fun RecapScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "Monthly Recap",
+                            text = "Monthly",
                             fontSize = 13.sp,
-                            fontWeight = if (!isYearlyMode) FontWeight.Bold else FontWeight.Medium,
-                            color = if (!isYearlyMode) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                            fontWeight = if (!isYearlyMode) FontWeight.SemiBold else FontWeight.Medium,
+                            color = if (!isYearlyMode) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
 
@@ -263,14 +257,8 @@ fun RecapScreen(
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxHeight()
-                            .clip(RoundedCornerShape(13.dp))
-                            .then(
-                                if (isYearlyMode) {
-                                    Modifier.background(
-                                        Brush.horizontalGradient(listOf(GradientPurple, GradientPink))
-                                    )
-                                } else Modifier
-                            )
+                            .clip(RoundedCornerShape(9.dp))
+                            .background(if (isYearlyMode) MaterialTheme.colorScheme.primary else Color.Transparent)
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },
                                 indication = null
@@ -278,30 +266,29 @@ fun RecapScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "Yearly Recap",
+                            text = "Yearly",
                             fontSize = 13.sp,
-                            fontWeight = if (isYearlyMode) FontWeight.Bold else FontWeight.Medium,
-                            color = if (isYearlyMode) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                            fontWeight = if (isYearlyMode) FontWeight.SemiBold else FontWeight.Medium,
+                            color = if (isYearlyMode) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
-            // ── 2. Sleek Month & Year Navigator Bar ──
+            // ── 2. Period Navigator Bar (44dp accessible buttons) ──
             Surface(
-                shape = RoundedCornerShape(18.dp),
+                shape = RoundedCornerShape(14.dp),
                 color = cardBg,
-                shadowElevation = if (isDarkTheme) 2.dp else 1.dp,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .border(1.dp, subtleBorderColor, RoundedCornerShape(18.dp))
+                    .border(1.dp, subtleBorderColor, RoundedCornerShape(14.dp))
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                        .padding(horizontal = 6.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
@@ -319,9 +306,8 @@ fun RecapScreen(
                             }
                         },
                         modifier = Modifier
-                            .size(38.dp)
-                            .clip(CircleShape)
-                            .background(if (isDarkTheme) Color(0xFF222633) else Color(0xFFF1F5F9))
+                            .size(44.dp)
+                            .clip(RoundedCornerShape(10.dp))
                     ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
@@ -336,25 +322,17 @@ fun RecapScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(28.dp)
-                                .clip(CircleShape)
-                                .background(GradientPurple.copy(alpha = 0.15f)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.DateRange,
-                                contentDescription = null,
-                                tint = GradientPurple,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(10.dp))
+                        Icon(
+                            imageVector = Icons.Default.DateRange,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = if (isYearlyMode) "$selectedYear" else "${monthNames[selectedMonth - 1]} $selectedYear",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                     }
@@ -373,9 +351,8 @@ fun RecapScreen(
                             }
                         },
                         modifier = Modifier
-                            .size(38.dp)
-                            .clip(CircleShape)
-                            .background(if (isDarkTheme) Color(0xFF222633) else Color(0xFFF1F5F9))
+                            .size(44.dp)
+                            .clip(RoundedCornerShape(10.dp))
                     ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
@@ -414,7 +391,7 @@ fun RecapScreen(
                             modifier = Modifier
                                 .size(36.dp)
                                 .clip(CircleShape)
-                                .background(GradientPurple.copy(alpha = 0.14f)),
+                                .background(MaterialTheme.colorScheme.primaryContainer),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
@@ -424,7 +401,7 @@ fun RecapScreen(
                                     Icons.Default.TwoWheeler
                                 },
                                 contentDescription = null,
-                                tint = GradientPurple,
+                                tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(19.dp)
                             )
                         }
@@ -526,7 +503,7 @@ fun RecapScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            CircularProgressIndicator(color = GradientPurple, strokeWidth = 3.dp)
+                            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary, strokeWidth = 3.dp)
                             Spacer(modifier = Modifier.height(16.dp))
                             Text(
                                 "Gathering your journey highlights...",
@@ -539,16 +516,40 @@ fun RecapScreen(
 
                 is RecapUiState.Error -> {
                     Surface(
-                        shape = RoundedCornerShape(18.dp),
-                        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f),
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp)
+                        shape = RoundedCornerShape(16.dp),
+                        color = MaterialTheme.colorScheme.surface,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 16.dp)
+                            .border(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.4f), RoundedCornerShape(16.dp))
                     ) {
-                        Text(
-                            text = "Failed to load recap: ${state.message}",
-                            color = MaterialTheme.colorScheme.onErrorContainer,
+                        Column(
                             modifier = Modifier.padding(16.dp),
-                            style = MaterialTheme.typography.bodyMedium
-                        )
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Text(
+                                text = "Failed to load recap: ${state.message}",
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            OutlinedButton(
+                                onClick = {
+                                    val startDate = if (isYearlyMode) "$selectedYear-01-01T00:00:00Z" else "$selectedYear-${selectedMonth.toString().padStart(2, '0')}-01T00:00:00Z"
+                                    val endDate = if (isYearlyMode) {
+                                        "${selectedYear + 1}-01-01T00:00:00Z"
+                                    } else {
+                                        val nextMonth = if (selectedMonth == 12) 1 else selectedMonth + 1
+                                        val nextYear = if (selectedMonth == 12) selectedYear + 1 else selectedYear
+                                        "$nextYear-${nextMonth.toString().padStart(2, '0')}-01T00:00:00Z"
+                                    }
+                                    val periodName = if (isYearlyMode) "$selectedYear" else "${monthNames[selectedMonth - 1]} $selectedYear"
+                                    viewModel.loadRecap(periodName, startDate, endDate)
+                                },
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Text("Retry")
+                            }
+                        }
                     }
                 }
 
@@ -556,50 +557,37 @@ fun RecapScreen(
                     val recap = state.recap
 
                     if (recap.totalTrips > 0) {
-                        // ── 4A. Hero Showcase Card (Spotify Wrapped / Strava Style) ──
+                        // ── 4A. Minimalist Summary Card ──
                         Surface(
-                            shape = RoundedCornerShape(24.dp),
+                            shape = RoundedCornerShape(16.dp),
                             color = cardBg,
-                            shadowElevation = if (isDarkTheme) 4.dp else 2.dp,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .border(1.2.dp, subtleBorderColor, RoundedCornerShape(24.dp))
+                                .border(1.dp, subtleBorderColor, RoundedCornerShape(16.dp))
                         ) {
                             Column(
                                 modifier = Modifier.padding(20.dp)
                             ) {
-                                // Top Spotlight Badge
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .background(
-                                                Brush.horizontalGradient(listOf(GradientPurple, GradientPink))
-                                            )
-                                            .padding(horizontal = 10.dp, vertical = 4.dp)
-                                    ) {
-                                        Text(
-                                            text = "TRIP SPOTLIGHT",
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.ExtraBold,
-                                            color = Color.White,
-                                            letterSpacing = 0.8.sp
-                                        )
-                                    }
-
+                                    Text(
+                                        text = "Recap Summary",
+                                        style = MaterialTheme.typography.labelLarge,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
                                     Text(
                                         text = recap.periodName,
                                         style = MaterialTheme.typography.labelMedium,
                                         fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        color = MaterialTheme.colorScheme.primary
                                     )
                                 }
 
-                                Spacer(modifier = Modifier.height(18.dp))
+                                Spacer(modifier = Modifier.height(16.dp))
 
                                 // Dual Hero Numbers: Distance & Completed Trips
                                 Row(
@@ -611,28 +599,25 @@ fun RecapScreen(
                                         modifier = Modifier.weight(1f)
                                     ) {
                                         Text(
-                                            text = "TOTAL DISTANCE",
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            letterSpacing = 0.6.sp
+                                            text = "Total Distance",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                         Spacer(modifier = Modifier.height(4.dp))
                                         Row(verticalAlignment = Alignment.Bottom) {
                                             Text(
                                                 text = "%.1f".format(recap.totalDistance / 1000),
-                                                fontSize = 36.sp,
-                                                fontWeight = FontWeight.Black,
-                                                color = GradientPurple,
-                                                lineHeight = 38.sp
+                                                fontSize = 32.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                                lineHeight = 34.sp
                                             )
                                             Spacer(modifier = Modifier.width(4.dp))
                                             Text(
-                                                text = "KM",
-                                                fontSize = 14.sp,
-                                                fontWeight = FontWeight.Bold,
+                                                text = "km",
+                                                style = MaterialTheme.typography.labelLarge,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                modifier = Modifier.padding(bottom = 6.dp)
+                                                modifier = Modifier.padding(bottom = 4.dp)
                                             )
                                         }
                                     }
@@ -641,7 +626,7 @@ fun RecapScreen(
                                     Box(
                                         modifier = Modifier
                                             .width(1.dp)
-                                            .height(44.dp)
+                                            .height(40.dp)
                                             .background(subtleBorderColor)
                                     )
 
@@ -652,45 +637,42 @@ fun RecapScreen(
                                         modifier = Modifier.weight(1f)
                                     ) {
                                         Text(
-                                            text = "COMPLETED TRIPS",
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            letterSpacing = 0.6.sp
+                                            text = "Completed Trips",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                         Spacer(modifier = Modifier.height(4.dp))
                                         Row(verticalAlignment = Alignment.Bottom) {
                                             Text(
                                                 text = "${recap.totalTrips}",
-                                                fontSize = 36.sp,
-                                                fontWeight = FontWeight.Black,
-                                                color = if (isDarkTheme) Color.White else TextDark,
-                                                lineHeight = 38.sp
+                                                fontSize = 32.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                                lineHeight = 34.sp
                                             )
                                             Spacer(modifier = Modifier.width(4.dp))
                                             Text(
-                                                text = if (recap.totalTrips == 1) "TRIP" else "TRIPS",
-                                                fontSize = 14.sp,
-                                                fontWeight = FontWeight.Bold,
+                                                text = if (recap.totalTrips == 1) "trip" else "trips",
+                                                style = MaterialTheme.typography.labelLarge,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                modifier = Modifier.padding(bottom = 6.dp)
+                                                modifier = Modifier.padding(bottom = 4.dp)
                                             )
                                         }
                                     }
                                 }
 
-                                Spacer(modifier = Modifier.height(18.dp))
-                                HorizontalDivider(color = subtleBorderColor.copy(alpha = 0.6f))
                                 Spacer(modifier = Modifier.height(16.dp))
+                                HorizontalDivider(color = subtleBorderColor)
+                                Spacer(modifier = Modifier.height(14.dp))
 
-                                // 2x2 Automotive Stat Grid
+                                // 2x2 Minimalist Stat Grid
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                                 ) {
                                     StatTile(
                                         icon = Icons.Default.Timer,
-                                        iconTint = AccentPeach,
+                                        iconTint = MaterialTheme.colorScheme.onSurfaceVariant,
                                         label = "Driving Time",
                                         value = formatDuration(recap.totalDuration),
                                         modifier = Modifier.weight(1f),
@@ -698,7 +680,7 @@ fun RecapScreen(
                                     )
                                     StatTile(
                                         icon = Icons.Default.Speed,
-                                        iconTint = AccentYellow,
+                                        iconTint = MaterialTheme.colorScheme.onSurfaceVariant,
                                         label = "Average Speed",
                                         value = "${"%.1f".format(recap.averageSpeed)} km/h",
                                         modifier = Modifier.weight(1f),
@@ -714,7 +696,7 @@ fun RecapScreen(
                                 ) {
                                     StatTile(
                                         icon = Icons.AutoMirrored.Filled.TrendingUp,
-                                        iconTint = ActivePink,
+                                        iconTint = MaterialTheme.colorScheme.onSurfaceVariant,
                                         label = "Top Speed",
                                         value = "${"%.1f".format(recap.maxSpeed)} km/h",
                                         modifier = Modifier.weight(1f),
@@ -722,7 +704,7 @@ fun RecapScreen(
                                     )
                                     StatTile(
                                         icon = Icons.Default.Route,
-                                        iconTint = AccentGreen,
+                                        iconTint = MaterialTheme.colorScheme.primary,
                                         label = "Routes Mapped",
                                         value = "${recap.routes.size} Routes",
                                         modifier = Modifier.weight(1f),
@@ -732,76 +714,67 @@ fun RecapScreen(
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(20.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
 
-                        // ── 4B. Primary Hero Action: Play Animated Story ──
+                        // ── 4B. Primary Action: Play Animated Story ──
                         Surface(
-                            shape = RoundedCornerShape(20.dp),
-                            shadowElevation = 6.dp,
+                            shape = RoundedCornerShape(14.dp),
+                            color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(64.dp)
-                                .clip(RoundedCornerShape(20.dp))
+                                .height(60.dp)
+                                .clip(RoundedCornerShape(14.dp))
                                 .clickable {
-                                    val startDate = "$selectedYear-${selectedMonth.toString().padStart(2, '0')}-01T00:00:00Z"
-                                    val nextMonth = if (selectedMonth == 12) 1 else selectedMonth + 1
-                                    val nextYear = if (selectedMonth == 12) selectedYear + 1 else selectedYear
-                                    val endDate = "$nextYear-${nextMonth.toString().padStart(2, '0')}-01T00:00:00Z"
+                                    val startDate = if (isYearlyMode) {
+                                        "$selectedYear-01-01T00:00:00Z"
+                                    } else {
+                                        "$selectedYear-${selectedMonth.toString().padStart(2, '0')}-01T00:00:00Z"
+                                    }
+                                    val endDate = if (isYearlyMode) {
+                                        "${selectedYear + 1}-01-01T00:00:00Z"
+                                    } else {
+                                        val nextMonth = if (selectedMonth == 12) 1 else selectedMonth + 1
+                                        val nextYear = if (selectedMonth == 12) selectedYear + 1 else selectedYear
+                                        "$nextYear-${nextMonth.toString().padStart(2, '0')}-01T00:00:00Z"
+                                    }
                                     onNavigateToStory(recap.periodName, startDate, endDate)
                                 }
                         ) {
-                            Box(
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .background(
-                                        Brush.horizontalGradient(listOf(GradientPurple, GradientPink))
-                                    )
-                                    .padding(horizontal = 16.dp),
-                                contentAlignment = Alignment.CenterStart
+                                    .padding(horizontal = 16.dp)
                             ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    // Glowing Play Circle
-                                    Box(
-                                        modifier = Modifier
-                                            .size(40.dp)
-                                            .clip(CircleShape)
-                                            .background(Color.White.copy(alpha = 0.25f)),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.PlayArrow,
-                                            contentDescription = null,
-                                            tint = Color.White,
-                                            modifier = Modifier.size(24.dp)
-                                        )
-                                    }
+                                Icon(
+                                    imageVector = Icons.Default.PlayArrow,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onPrimary,
+                                    modifier = Modifier.size(24.dp)
+                                )
 
-                                    Spacer(modifier = Modifier.width(14.dp))
+                                Spacer(modifier = Modifier.width(12.dp))
 
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            text = "Play Animated Story",
-                                            fontSize = 16.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color.White
-                                        )
-                                        Text(
-                                            text = "Watch your monthly journey reel",
-                                            fontSize = 11.sp,
-                                            color = Color.White.copy(alpha = 0.85f)
-                                        )
-                                    }
-
-                                    Icon(
-                                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                                        contentDescription = null,
-                                        tint = Color.White.copy(alpha = 0.9f),
-                                        modifier = Modifier.size(22.dp)
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "Play Animated Story",
+                                        fontSize = 15.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onPrimary
+                                    )
+                                    Text(
+                                        text = if (isYearlyMode) "Watch your yearly journey reel" else "Watch your monthly journey reel",
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f)
                                     )
                                 }
+
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onPrimary,
+                                    modifier = Modifier.size(22.dp)
+                                )
                             }
                         }
 
@@ -845,13 +818,13 @@ fun RecapScreen(
                                         modifier = Modifier
                                             .size(38.dp)
                                             .clip(CircleShape)
-                                            .background(AccentPeach.copy(alpha = 0.16f)),
+                                            .background(MaterialTheme.colorScheme.primaryContainer),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Icon(
                                             imageVector = Icons.Default.Image,
                                             contentDescription = null,
-                                            tint = AccentPeach,
+                                            tint = MaterialTheme.colorScheme.primary,
                                             modifier = Modifier.size(20.dp)
                                         )
                                     }
@@ -954,13 +927,13 @@ fun RecapScreen(
                                     modifier = Modifier
                                         .size(64.dp)
                                         .clip(CircleShape)
-                                        .background(GradientPurple.copy(alpha = 0.12f)),
+                                        .background(MaterialTheme.colorScheme.primaryContainer),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.Route,
                                         contentDescription = null,
-                                        tint = GradientPurple,
+                                        tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(32.dp)
                                     )
                                 }
@@ -1024,49 +997,33 @@ private fun StatTile(
     modifier: Modifier = Modifier,
     isDark: Boolean = true
 ) {
-    val tileBg = if (isDark) Color(0xFF222634) else Color(0xFFF8FAFC)
-    val tileBorder = if (isDark) Color(0xFF333849) else Color(0xFFE2E8F0)
-
-    Surface(
-        shape = RoundedCornerShape(16.dp),
-        color = tileBg,
-        modifier = modifier.border(1.dp, tileBorder, RoundedCornerShape(16.dp))
+    Column(
+        modifier = modifier.padding(vertical = 4.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(26.dp)
-                        .clip(CircleShape)
-                        .background(iconTint.copy(alpha = 0.16f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        tint = iconTint,
-                        modifier = Modifier.size(15.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = label,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1
-                )
-            }
-            Spacer(modifier = Modifier.height(6.dp))
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = iconTint,
+                modifier = Modifier.size(15.dp)
+            )
             Text(
-                text = value,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1
             )
         }
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = value,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface
+        )
     }
 }
 

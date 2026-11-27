@@ -31,15 +31,17 @@ class ApiService(
 ) {
 
     private suspend inline fun <reified T> safeRequest(
+        allowAuthRefresh: Boolean = true,
         block: () -> HttpResponse
     ): Response<T> {
         return try {
+            val tokenBeforeRequest = tokenManager.accessToken
             val response = block()
             if (response.status.isSuccess()) {
                 Response(response.status.value, response.body<T>())
-            } else if (response.status.value == 401) {
+            } else if (response.status.value == 401 && allowAuthRefresh) {
                 // Try refresh token, then retry once
-                val refreshed = tryRefreshToken()
+                val refreshed = tryRefreshToken(tokenBeforeRequest)
                 if (refreshed) {
                     val retryResponse = block()
                     if (retryResponse.status.isSuccess()) {
@@ -62,8 +64,12 @@ class ApiService(
 
     private val refreshMutex = kotlinx.coroutines.sync.Mutex()
 
-    private suspend fun tryRefreshToken(): Boolean {
+    private suspend fun tryRefreshToken(failedAccessToken: String?): Boolean {
         refreshMutex.withLock {
+            val latestAccessToken = tokenManager.accessToken
+            if (!latestAccessToken.isNullOrEmpty() && latestAccessToken != failedAccessToken) {
+                return true
+            }
             val currentRefreshToken = tokenManager.refreshToken
             if (currentRefreshToken.isNullOrEmpty()) {
                 tokenManager.clearTokens()
@@ -98,7 +104,7 @@ class ApiService(
         }
     }
 
-    suspend fun googleLogin(request: GoogleLoginRequest): Response<AuthResponse> = safeRequest {
+    suspend fun googleLogin(request: GoogleLoginRequest): Response<AuthResponse> = safeRequest(allowAuthRefresh = false) {
         client.post("api/auth/google/mobile") {
             contentType(ContentType.Application.Json)
             setBody(request)
@@ -112,14 +118,14 @@ class ApiService(
         }
     }
 
-    suspend fun register(request: RegisterRequest): Response<AuthResponse> = safeRequest {
+    suspend fun register(request: RegisterRequest): Response<AuthResponse> = safeRequest(allowAuthRefresh = false) {
         client.post("api/auth/register") {
             contentType(ContentType.Application.Json)
             setBody(request)
         }
     }
 
-    suspend fun login(request: LoginRequest): Response<AuthResponse> = safeRequest {
+    suspend fun login(request: LoginRequest): Response<AuthResponse> = safeRequest(allowAuthRefresh = false) {
         client.post("api/auth/login") {
             contentType(ContentType.Application.Json)
             setBody(request)
@@ -130,7 +136,7 @@ class ApiService(
         client.get("api/auth/me")
     }
 
-    suspend fun refresh(request: RefreshRequest): Response<AuthResponse> = safeRequest {
+    suspend fun refresh(request: RefreshRequest): Response<AuthResponse> = safeRequest(allowAuthRefresh = false) {
         client.post("api/auth/refresh") {
             contentType(ContentType.Application.Json)
             setBody(request)
@@ -145,7 +151,8 @@ class ApiService(
     }
 
     suspend fun endTrip(tripId: String, totalDistance: Double? = null): Response<String> = safeRequest {
-        client.post("api/trips/$tripId/end") {
+        client.post {
+            url { appendPathSegments("api", "trips", tripId, "end") }
             if (totalDistance != null) {
                 contentType(ContentType.Application.Json)
                 setBody(WsEndTripMessage(tripId = tripId, totalDistance = totalDistance))
@@ -163,18 +170,23 @@ class ApiService(
     }
 
     suspend fun getTripDetail(tripId: String): Response<TripDetailResponse> = safeRequest {
-        client.get("api/trips/$tripId")
+        client.get {
+            url { appendPathSegments("api", "trips", tripId) }
+        }
     }
 
     suspend fun deleteTrip(tripId: String): Response<String> = safeRequest {
-        client.delete("api/trips/$tripId")
+        client.delete {
+            url { appendPathSegments("api", "trips", tripId) }
+        }
     }
 
     suspend fun batchUploadLocations(
         tripId: String,
         locations: List<WsLocationMessage>
     ): Response<String> = safeRequest {
-        client.post("api/trips/$tripId/locations/batch") {
+        client.post {
+            url { appendPathSegments("api", "trips", tripId, "locations", "batch") }
             contentType(ContentType.Application.Json)
             setBody(locations)
         }
@@ -192,48 +204,62 @@ class ApiService(
     }
 
     suspend fun updateVehicle(id: String, request: UpdateVehicleRequest): Response<VehicleResponse> = safeRequest {
-        client.put("api/vehicles/$id") {
+        client.put {
+            url { appendPathSegments("api", "vehicles", id) }
             contentType(ContentType.Application.Json)
             setBody(request)
         }
     }
 
     suspend fun deleteVehicle(id: String): Response<BaseResponse> = safeRequest {
-        client.delete("api/vehicles/$id")
+        client.delete {
+            url { appendPathSegments("api", "vehicles", id) }
+        }
     }
 
     suspend fun getServiceReminders(vehicleId: String): Response<ServiceReminderListResponse> = safeRequest {
-        client.get("api/vehicles/$vehicleId/service-reminders")
+        client.get {
+            url { appendPathSegments("api", "vehicles", vehicleId, "service-reminders") }
+        }
     }
 
     suspend fun createServiceReminder(vehicleId: String, request: CreateReminderRequest): Response<ServiceReminderResponse> = safeRequest {
-        client.post("api/vehicles/$vehicleId/service-reminders") {
+        client.post {
+            url { appendPathSegments("api", "vehicles", vehicleId, "service-reminders") }
             contentType(ContentType.Application.Json)
             setBody(request)
         }
     }
 
     suspend fun updateServiceReminder(vehicleId: String, reminderId: String, request: CreateReminderRequest): Response<ServiceReminderResponse> = safeRequest {
-        client.put("api/vehicles/$vehicleId/service-reminders/$reminderId") {
+        client.put {
+            url { appendPathSegments("api", "vehicles", vehicleId, "service-reminders", reminderId) }
             contentType(ContentType.Application.Json)
             setBody(request)
         }
     }
 
     suspend fun deleteServiceReminder(vehicleId: String, reminderId: String): Response<BaseResponse> = safeRequest {
-        client.delete("api/vehicles/$vehicleId/service-reminders/$reminderId")
+        client.delete {
+            url { appendPathSegments("api", "vehicles", vehicleId, "service-reminders", reminderId) }
+        }
     }
 
     suspend fun getServiceReminderProgress(vehicleId: String, reminderId: String): Response<ServiceReminderProgressResponse> = safeRequest {
-        client.get("api/vehicles/$vehicleId/service-reminders/$reminderId/progress")
+        client.get {
+            url { appendPathSegments("api", "vehicles", vehicleId, "service-reminders", reminderId, "progress") }
+        }
     }
 
     suspend fun resetServiceReminder(vehicleId: String, reminderId: String): Response<BaseResponse> = safeRequest {
-        client.post("api/vehicles/$vehicleId/service-reminders/$reminderId/reset")
+        client.post {
+            url { appendPathSegments("api", "vehicles", vehicleId, "service-reminders", reminderId, "reset") }
+        }
     }
 
     suspend fun addManualDistance(vehicleId: String, reminderId: String, request: AddManualDistanceRequest): Response<BaseResponse> = safeRequest {
-        client.post("api/vehicles/$vehicleId/service-reminders/$reminderId/manual-distance") {
+        client.post {
+            url { appendPathSegments("api", "vehicles", vehicleId, "service-reminders", reminderId, "manual-distance") }
             contentType(ContentType.Application.Json)
             setBody(request)
         }

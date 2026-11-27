@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import org.koin.compose.koinInject
 import com.myapp.motrava.data.local.TokenManager
+import com.myapp.motrava.data.repository.AuthRepository
 import kotlinx.coroutines.delay
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DirectionsCar
@@ -26,10 +27,14 @@ fun SplashScreen(
     onSplashFinished: (isLoggedIn: Boolean) -> Unit
 ) {
     val tokenManager: TokenManager = koinInject()
+    val authRepository: AuthRepository = koinInject()
 
     LaunchedEffect(Unit) {
-        // Wait for 1.5 seconds to show the logo
-        delay(1500L)
+        if (tokenManager.accessToken != null) {
+            authRepository.getMe()
+        } else {
+            delay(1500L)
+        }
         val isLoggedIn = tokenManager.accessToken != null
         onSplashFinished(isLoggedIn)
     }

@@ -32,3 +32,12 @@ actual fun stopTripService() {
     }
     context.startService(intent)
 }
+
+actual fun clearTripServiceSession() {
+    val context = GlobalContext.get().get<Context>()
+    context.stopService(Intent(context, LocationTrackingService::class.java))
+    context.getSharedPreferences("trip_service_prefs", Context.MODE_PRIVATE)
+        .edit()
+        .clear()
+        .apply()
+}

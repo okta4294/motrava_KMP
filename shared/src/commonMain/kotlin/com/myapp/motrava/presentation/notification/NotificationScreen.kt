@@ -363,9 +363,9 @@ private fun NotificationItem(
     }
 
     val categoryColor = when (category) {
-        NotificationCategory.SERVICE -> AccentPeach
-        NotificationCategory.TRIP -> GradientPurple
-        NotificationCategory.SYSTEM -> GradientPink
+        NotificationCategory.SERVICE -> MaterialTheme.colorScheme.primary
+        NotificationCategory.TRIP -> MaterialTheme.colorScheme.onSurface
+        NotificationCategory.SYSTEM -> MaterialTheme.colorScheme.onSurfaceVariant
     }
 
     val isUnread = !notification.isRead
@@ -461,16 +461,16 @@ private fun NotificationItem(
                 )
             }
 
-            // Delete action for individual item
+            // Delete action for individual item (44dp accessible tap target)
             IconButton(
                 onClick = onDelete,
-                modifier = Modifier.size(28.dp)
+                modifier = Modifier.size(44.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.Close,
                     contentDescription = "Dismiss notification",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                    modifier = Modifier.size(16.dp)
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    modifier = Modifier.size(18.dp)
                 )
             }
         }

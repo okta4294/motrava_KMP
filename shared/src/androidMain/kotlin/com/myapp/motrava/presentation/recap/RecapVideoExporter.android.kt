@@ -217,51 +217,105 @@ private suspend fun captureMapSnapshot(
 }
 
 
-private class StoryOverlayPaints(isDarkTheme: Boolean) {
+private fun easeOutCubic(t: Float): Float {
+    val c = t.coerceIn(0f, 1f)
+    val inv = 1f - c
+    return 1f - inv * inv * inv
+}
+
+private fun easeOutExpo(t: Float): Float {
+    val c = t.coerceIn(0f, 1f)
+    return if (c >= 1f) 1f else 1f - Math.pow(2.0, -10.0 * c).toFloat()
+}
+
+private fun formatVideoDuration(totalSeconds: Long): String {
+    if (totalSeconds <= 0L) return "0m"
+    val hours = totalSeconds / 3600
+    val minutes = (totalSeconds % 3600) / 60
+    return when {
+        hours > 0 && minutes > 0 -> "${hours}h ${minutes}m"
+        hours > 0 -> "${hours}h"
+        minutes > 0 -> "${minutes}m"
+        else -> "<1m"
+    }
+}
+
+private class StoryOverlayPaints {
+    val accentColor = Color.parseColor("#FE6E00")
+    val mutedWarmColor = Color.parseColor("#B9B3AC")
+
     val brandPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#FF6D00")
-        textSize = 48f
+        color = Color.WHITE
+        textSize = 36f
         typeface = Typeface.create(Typeface.DEFAULT_BOLD, Typeface.BOLD)
-        letterSpacing = 0.2f
+        letterSpacing = 0.28f
         textAlign = Paint.Align.CENTER
+    }
+    val kickerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = accentColor
+        textSize = 28f
+        typeface = Typeface.create(Typeface.DEFAULT_BOLD, Typeface.BOLD)
+        letterSpacing = 0.18f
+        textAlign = Paint.Align.LEFT
     }
     val titlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.WHITE
-        textSize = 76f
+        textSize = 78f
         typeface = Typeface.create(Typeface.DEFAULT_BOLD, Typeface.BOLD)
+        letterSpacing = -0.02f
         textAlign = Paint.Align.LEFT
     }
     val subPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.WHITE
-        textSize = 40f
+        color = mutedWarmColor
+        textSize = 34f
         typeface = Typeface.DEFAULT
         textAlign = Paint.Align.LEFT
     }
     val distLabelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#FF6D00")
-        textSize = 34f
+        color = mutedWarmColor
+        textSize = 26f
         typeface = Typeface.create(Typeface.DEFAULT_BOLD, Typeface.BOLD)
-        letterSpacing = 0.1f
+        letterSpacing = 0.16f
         textAlign = Paint.Align.LEFT
     }
     val distValPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.WHITE
-        textSize = 96f
+        textSize = 114f
+        typeface = Typeface.create(Typeface.DEFAULT_BOLD, Typeface.BOLD)
+        letterSpacing = -0.03f
+        textAlign = Paint.Align.LEFT
+    }
+    val distUnitPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = accentColor
+        textSize = 44f
         typeface = Typeface.create(Typeface.DEFAULT_BOLD, Typeface.BOLD)
         textAlign = Paint.Align.LEFT
     }
     val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor(if (isDarkTheme) "#808080" else "#B3B3B3")
-        textSize = 34f
+        color = mutedWarmColor
+        textSize = 24f
         typeface = Typeface.create(Typeface.DEFAULT_BOLD, Typeface.BOLD)
-        letterSpacing = 0.1f
+        letterSpacing = 0.14f
         textAlign = Paint.Align.LEFT
     }
     val valPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.WHITE
-        textSize = 68f
+        textSize = 52f
         typeface = Typeface.create(Typeface.DEFAULT_BOLD, Typeface.BOLD)
+        letterSpacing = -0.01f
         textAlign = Paint.Align.LEFT
+    }
+    val dividerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
+        strokeWidth = 2f
+    }
+    val accentBarPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = accentColor
+        style = Paint.Style.FILL
+    }
+    val progressTrackPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.argb(65, 255, 255, 255)
+        style = Paint.Style.FILL
     }
 }
 
@@ -269,49 +323,134 @@ private fun drawStoryOverlay(
     canvas: Canvas,
     recap: TripRecap,
     paints: StoryOverlayPaints,
-    distFormatted: String,
-    maxSpeedFormatted: String,
-    step1Alpha: Float, step1OffsetY: Float,
-    step2Alpha: Float, step2OffsetY: Float,
-    step3Alpha: Float, step3OffsetY: Float,
-    w: Int, h: Int
+    frameIdx: Int,
+    totalFrames: Int,
+    routeProgress: Float,
+    w: Int,
+    h: Int
 ) {
-    val startX = 90f
+    val marginX = 84f
+    val contentWidth = w - (marginX * 2f)
 
-    // Brand Header & Period Title
-    if (step1Alpha > 0f) {
-        val a1 = (step1Alpha * 255).toInt().coerceIn(0, 255)
+    // ── Top Timeline Progress Hairline (9:16 safe zone) ──
+    val overallProgress = (frameIdx.toFloat() / (totalFrames - 1).coerceAtLeast(1)).coerceIn(0f, 1f)
+    val barY = 96f
+    val barH = 5f
+    canvas.drawRoundRect(RectF(marginX, barY, w - marginX, barY + barH), 3f, 3f, paints.progressTrackPaint)
+    paints.accentBarPaint.alpha = 255
+    canvas.drawRoundRect(
+        RectF(marginX, barY, marginX + contentWidth * overallProgress, barY + barH),
+        3f, 3f, paints.accentBarPaint
+    )
 
-        paints.brandPaint.alpha = a1
-        canvas.drawText("MOTRAVA", w / 2f, 300f + step1OffsetY, paints.brandPaint)
+    // ── Brand Header (MOTRAVA + orange dot) ──
+    val brandT = easeOutCubic(frameIdx / 24f)
+    val brandAlpha = (brandT * 255).toInt().coerceIn(0, 255)
+    val brandSlide = (1f - brandT) * 18f
+    paints.brandPaint.alpha = brandAlpha
+    canvas.drawText("MOTRAVA", w / 2f, 174f + brandSlide, paints.brandPaint)
+    paints.accentBarPaint.alpha = brandAlpha
+    canvas.drawRoundRect(
+        RectF(w / 2f - 22f, 192f + brandSlide, w / 2f + 22f, 197f + brandSlide),
+        3f, 3f, paints.accentBarPaint
+    )
+
+    // ── Bottom Editorial Telemetry Block (y = 1170..1710, clear of map center & Reels bottom UI) ──
+    // Act 1: Period Kicker + Headline (frames 8..34)
+    val step1T = easeOutExpo((frameIdx - 8f) / 26f)
+    if (step1T > 0.01f) {
+        val a1 = (step1T * 255).toInt().coerceIn(0, 255)
+        val yOff1 = (1f - step1T) * 32f
+
+        paints.accentBarPaint.alpha = a1
+        canvas.drawRoundRect(
+            RectF(marginX, 1188f + yOff1, marginX + 28f, 1194f + yOff1),
+            3f, 3f, paints.accentBarPaint
+        )
+        paints.kickerPaint.alpha = a1
+        canvas.drawText("RIDE RECAP", marginX + 42f, 1200f + yOff1, paints.kickerPaint)
 
         paints.titlePaint.alpha = a1
-        paints.subPaint.alpha = (a1 * 0.9f).toInt()
-        canvas.drawText(recap.periodName, startX, 680f + step1OffsetY, paints.titlePaint)
-        canvas.drawText("You were unstoppable.", startX, 745f + step1OffsetY, paints.subPaint)
+        canvas.drawText(recap.periodName, marginX, 1288f + yOff1, paints.titlePaint)
+
+        paints.subPaint.alpha = (a1 * 0.88f).toInt()
+        val subtitle = if (recap.totalTrips == 1) "1 recorded journey on the road" else "${recap.totalTrips} recorded journeys on the road"
+        canvas.drawText(subtitle, marginX, 1340f + yOff1, paints.subPaint)
     }
 
-    // Distance metric
-    if (step2Alpha > 0f) {
-        val a2 = (step2Alpha * 255).toInt().coerceIn(0, 255)
+    // Animated Hairline Divider (frames 24..50)
+    val divT = easeOutCubic((frameIdx - 24f) / 26f)
+    if (divT > 0.01f) {
+        paints.dividerPaint.alpha = (divT * 52).toInt().coerceIn(0, 52)
+        val divY = 1384f
+        canvas.drawLine(marginX, divY, marginX + contentWidth * divT, divY, paints.dividerPaint)
+    }
+
+    // Act 2: Hero Distance with Live Count-Up (frames 30..62 entrance, count-up tracks route)
+    val step2T = easeOutExpo((frameIdx - 30f) / 30f)
+    if (step2T > 0.01f) {
+        val a2 = (step2T * 255).toInt().coerceIn(0, 255)
+        val yOff2 = (1f - step2T) * 30f
+
         paints.distLabelPaint.alpha = a2
+        canvas.drawText("TOTAL DISTANCE", marginX, 1442f + yOff2, paints.distLabelPaint)
+
+        val countProgress = easeOutCubic(((frameIdx - 30f) / 140f).coerceAtLeast(routeProgress))
+        val animatedDistKm = (recap.totalDistance / 1000.0) * countProgress
+        val distNumText = "%.1f".format(animatedDistKm)
+
         paints.distValPaint.alpha = a2
-        canvas.drawText("DISTANCE", startX, 900f + step2OffsetY, paints.distLabelPaint)
-        canvas.drawText(distFormatted, startX, 1010f + step2OffsetY, paints.distValPaint)
+        canvas.drawText(distNumText, marginX, 1556f + yOff2, paints.distValPaint)
+
+        val numWidth = paints.distValPaint.measureText(distNumText)
+        paints.distUnitPaint.alpha = a2
+        canvas.drawText("km", marginX + numWidth + 16f, 1556f + yOff2, paints.distUnitPaint)
     }
 
-    // Trips & max speed metrics
-    if (step3Alpha > 0f) {
-        val a3 = (step3Alpha * 255).toInt().coerceIn(0, 255)
-        paints.labelPaint.alpha = a3
-        paints.valPaint.alpha = a3
+    // Act 3: 3-Column Secondary Metrics with Staggered Reveal (frames 54..96)
+    val col1T = easeOutExpo((frameIdx - 54f) / 26f)
+    val col2T = easeOutExpo((frameIdx - 62f) / 26f)
+    val col3T = easeOutExpo((frameIdx - 70f) / 26f)
 
-        canvas.drawText("TRIPS", startX, 1160f + step3OffsetY, paints.labelPaint)
-        canvas.drawText("${recap.totalTrips}", startX, 1245f + step3OffsetY, paints.valPaint)
+    val rowLabelY = 1638f
+    val rowValY = 1698f
+    val colWidth = contentWidth / 3f
 
-        val col2X = w * 0.52f
-        canvas.drawText("MAX SPEED", col2X, 1160f + step3OffsetY, paints.labelPaint)
-        canvas.drawText(maxSpeedFormatted, col2X, 1245f + step3OffsetY, paints.valPaint)
+    if (col1T > 0.01f) {
+        val a = (col1T * 255).toInt().coerceIn(0, 255)
+        val yOff = (1f - col1T) * 24f
+        paints.labelPaint.alpha = a
+        paints.valPaint.alpha = a
+        val animatedTrips = kotlin.math.round(recap.totalTrips * easeOutCubic((frameIdx - 54f) / 36f)).toInt()
+        canvas.drawText("TRIPS", marginX, rowLabelY + yOff, paints.labelPaint)
+        canvas.drawText("$animatedTrips", marginX, rowValY + yOff, paints.valPaint)
+    }
+
+    if (col2T > 0.01f) {
+        val a = (col2T * 255).toInt().coerceIn(0, 255)
+        val yOff = (1f - col2T) * 24f
+        val x2 = marginX + colWidth
+        paints.dividerPaint.alpha = (col2T * 42).toInt().coerceIn(0, 42)
+        canvas.drawLine(x2 - 24f, rowLabelY - 18f, x2 - 24f, rowValY + 6f, paints.dividerPaint)
+
+        paints.labelPaint.alpha = a
+        paints.valPaint.alpha = a
+        val animatedSpeed = recap.maxSpeed * easeOutCubic((frameIdx - 62f) / 48f)
+        canvas.drawText("TOP SPEED", x2, rowLabelY + yOff, paints.labelPaint)
+        canvas.drawText("${"%.0f".format(animatedSpeed)} km/h", x2, rowValY + yOff, paints.valPaint)
+    }
+
+    if (col3T > 0.01f) {
+        val a = (col3T * 255).toInt().coerceIn(0, 255)
+        val yOff = (1f - col3T) * 24f
+        val x3 = marginX + colWidth * 2f
+        paints.dividerPaint.alpha = (col3T * 42).toInt().coerceIn(0, 42)
+        canvas.drawLine(x3 - 24f, rowLabelY - 18f, x3 - 24f, rowValY + 6f, paints.dividerPaint)
+
+        paints.labelPaint.alpha = a
+        paints.valPaint.alpha = a
+        canvas.drawText("DURATION", x3, rowLabelY + yOff, paints.labelPaint)
+        canvas.drawText(formatVideoDuration(recap.totalDuration), x3, rowValY + yOff, paints.valPaint)
     }
 }
 
@@ -319,21 +458,40 @@ private fun drawRoutes(
     canvas: Canvas,
     allRoutes: List<List<RoutePoint>>,
     drawnCounts: IntArray,
+    glowPaint: Paint,
     linePaint: Paint,
+    corePaint: Paint,
+    headHaloPaint: Paint,
+    headDotPaint: Paint,
     routePath: Path,
     lngToX: (Double) -> Float,
     latToY: (Double) -> Float
 ) {
+    var headX = Float.NaN
+    var headY = Float.NaN
+
     allRoutes.forEachIndexed { idx, r ->
         val count = drawnCounts.getOrNull(idx)?.coerceAtMost(r.size) ?: 0
         if (count < 2) return@forEachIndexed
         routePath.rewind()
         for (pi in 0 until count) {
             val p = r[pi]
-            val x = lngToX(p.longitude); val y = latToY(p.latitude)
+            val x = lngToX(p.longitude)
+            val y = latToY(p.latitude)
             if (pi == 0) routePath.moveTo(x, y) else routePath.lineTo(x, y)
+            if (pi == count - 1) {
+                headX = x
+                headY = y
+            }
         }
+        canvas.drawPath(routePath, glowPaint)
         canvas.drawPath(routePath, linePaint)
+        canvas.drawPath(routePath, corePaint)
+    }
+
+    if (!headX.isNaN() && !headY.isNaN()) {
+        canvas.drawCircle(headX, headY, 16f, headHaloPaint)
+        canvas.drawCircle(headX, headY, 7f, headDotPaint)
     }
 }
 
@@ -414,17 +572,53 @@ private fun renderAndEncodeToMp4(
     var camCenterY = if (firstPt != null) latToY(firstPt.latitude)  else height / 2f
     var camZoom   = if (allRoutes.isNotEmpty()) 3.5f else 1f
 
-    // ── Pre-allocated drawing paints and strings ──
-    val overlayPaints = StoryOverlayPaints(isDarkTheme)
-    val bgPaint = Paint().apply { color = Color.parseColor(if (isDarkTheme) "#0A0A12" else "#F5F5F5") }
-    val darkOverlayPaint = Paint().apply { color = Color.parseColor("#80000000") }
+    // ── Pre-allocated drawing paints and cinematic vignette scrim ──
+    val overlayPaints = StoryOverlayPaints()
+    val bgPaint = Paint().apply { color = Color.parseColor(if (isDarkTheme) "#1A1715" else "#FCFAF7") }
+    val vignettePaint = Paint().apply {
+        shader = android.graphics.LinearGradient(
+            0f, 0f, 0f, height.toFloat(),
+            intArrayOf(
+                Color.argb(145, 14, 12, 10),
+                Color.TRANSPARENT,
+                Color.TRANSPARENT,
+                Color.argb(190, 14, 12, 10),
+                Color.argb(242, 14, 12, 10)
+            ),
+            floatArrayOf(0f, 0.20f, 0.54f, 0.72f, 1f),
+            Shader.TileMode.CLAMP
+        )
+    }
+    val routeGlowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.argb(72, 254, 110, 0)
+        style = Paint.Style.STROKE
+        strokeWidth = 22f
+        strokeCap = Paint.Cap.ROUND
+        strokeJoin = Paint.Join.ROUND
+    }
     val routeLinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#FF6D00"); style = Paint.Style.STROKE
-        strokeWidth = 10f; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND
+        color = Color.parseColor("#FE6E00")
+        style = Paint.Style.STROKE
+        strokeWidth = 10f
+        strokeCap = Paint.Cap.ROUND
+        strokeJoin = Paint.Join.ROUND
+    }
+    val routeCorePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.argb(175, 255, 210, 140)
+        style = Paint.Style.STROKE
+        strokeWidth = 3.2f
+        strokeCap = Paint.Cap.ROUND
+        strokeJoin = Paint.Join.ROUND
+    }
+    val headHaloPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.argb(120, 254, 110, 0)
+        style = Paint.Style.FILL
+    }
+    val headDotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
+        style = Paint.Style.FILL
     }
     val reusableRoutePath = Path()
-    val distFormatted = "${"%.1f".format(recap.totalDistance / 1000)} km"
-    val maxSpeedFormatted = "${"%.0f".format(recap.maxSpeed)} km/h"
 
     // ── Single reusable bitmap buffer (allocates once, avoids 3.7GB OOM) ──
     val renderBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
@@ -502,9 +696,9 @@ private fun renderAndEncodeToMp4(
             camCenterY += (targetCamCenterY - camCenterY) * lerpFactor
             camZoom    += (targetCamZoom    - camZoom)    * lerpFactor
 
-            // 4. Render into single reusable bitmap
+            // 4. Render into single reusable bitmap (frame route in upper-center clear zone above bottom telemetry)
             renderCanvas.save()
-            renderCanvas.translate(width / 2f, height / 2f)
+            renderCanvas.translate(width / 2f, height * 0.38f)
             renderCanvas.scale(camZoom, camZoom)
             renderCanvas.translate(-camCenterX, -camCenterY)
 
@@ -514,27 +708,27 @@ private fun renderAndEncodeToMp4(
                 renderCanvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), bgPaint)
             }
 
-            drawRoutes(renderCanvas, allRoutes, drawnCounts, routeLinePaint, reusableRoutePath, ::lngToX, ::latToY)
+            drawRoutes(
+                renderCanvas, allRoutes, drawnCounts,
+                routeGlowPaint, routeLinePaint, routeCorePaint,
+                headHaloPaint, headDotPaint,
+                reusableRoutePath, ::lngToX, ::latToY
+            )
             renderCanvas.restore()
 
-            // 5. Dark overlay
-            renderCanvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), darkOverlayPaint)
+            // 5. Cinematic top + bottom vignette scrim (keeps center route crisp)
+            renderCanvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), vignettePaint)
 
-            // 6. Text overlays
-            val step1Alpha = (frameIdx / 30f).coerceIn(0f, 1f)
-            val step1OffsetY = (1f - step1Alpha) * 40f
-            val step2Alpha = ((frameIdx - 30) / 30f).coerceIn(0f, 1f)
-            val step2OffsetY = (1f - step2Alpha) * 40f
-            val step3Alpha = ((frameIdx - 60) / 30f).coerceIn(0f, 1f)
-            val step3OffsetY = (1f - step3Alpha) * 40f
-
+            // 6. Editorial choreographed text overlays
             drawStoryOverlay(
-                canvas = renderCanvas, recap = recap, paints = overlayPaints,
-                distFormatted = distFormatted, maxSpeedFormatted = maxSpeedFormatted,
-                step1Alpha = step1Alpha, step1OffsetY = step1OffsetY,
-                step2Alpha = step2Alpha, step2OffsetY = step2OffsetY,
-                step3Alpha = step3Alpha, step3OffsetY = step3OffsetY,
-                w = width, h = height
+                canvas = renderCanvas,
+                recap = recap,
+                paints = overlayPaints,
+                frameIdx = frameIdx,
+                totalFrames = totalFrames,
+                routeProgress = routeProgress,
+                w = width,
+                h = height
             )
 
             // 7. Write rendered frame directly to encoder surface

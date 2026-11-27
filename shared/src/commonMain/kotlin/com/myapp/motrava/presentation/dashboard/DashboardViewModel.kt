@@ -90,6 +90,37 @@ class DashboardViewModel(
         }
     }
 
+    private suspend fun countAllCompletedTripsForVehicle(
+        selectedVehicleId: String?,
+        selectedVehicleName: String?,
+        fallbackCount: Int
+    ): Int {
+        var page = 1
+        val pageSize = 100
+        var count = 0
+        var fetchedAnyPage = false
+        while (true) {
+            val resp = tripRepository.getTripHistory(page = page, limit = pageSize).getOrNull() ?: break
+            fetchedAnyPage = true
+            val batch = resp.data ?: emptyList()
+            if (batch.isEmpty()) break
+
+            val completed = batch.filter { it.status == "COMPLETED" }
+            count += if (selectedVehicleId != null) {
+                completed.count { trip ->
+                    (trip.vehicleId != null && trip.vehicleId.trim() == selectedVehicleId.trim()) ||
+                        (selectedVehicleName != null && trip.vehicleName?.trim().equals(selectedVehicleName.trim(), ignoreCase = true))
+                }
+            } else {
+                completed.size
+            }
+
+            if (batch.size < pageSize) break
+            page++
+        }
+        return if (fetchedAnyPage) count else fallbackCount
+    }
+
     init {
         fetchDashboard()
     }
@@ -132,21 +163,20 @@ class DashboardViewModel(
                 } else 0.0
                 val maxSpeed = trips.mapNotNull { it.maximumSpeed }.maxOrNull() ?: 0.0
                 val completedTrips = trips.filter { it.status == "COMPLETED" }
-
-                val totalTripsFromMeta = tripsResp?.resolveTotalCount(completedTrips.size) ?: completedTrips.size
-                val hasOngoing = allFetchedTrips.any { it.status == "ONGOING" }
-                val completedTripsCount = if (tripsResp?.total != null || tripsResp?.totalCount != null || tripsResp?.pagination?.total != null || tripsResp?.meta?.total != null) {
-                    maxOf(0, totalTripsFromMeta - (if (hasOngoing) 1 else 0))
-                } else {
-                    completedTrips.size
-                }
-
                 val totalPages = tripsResp?.resolveTotalPages(allFetchedTrips.size, currentPage.value + 1, 10) ?: 1
 
-                // Fetch service progress for the selected vehicle
+                // Fetch service progress and total completed trip count for the selected vehicle
                 val reminderProgressList = mutableListOf<ServiceReminderProgressData>()
                 val selectedVehicleId = tokenManager.lastSelectedVehicleId ?: vehicles.firstOrNull { it.isDefault }?.id ?: vehicles.firstOrNull()?.id
-                
+                val selectedVehicle = selectedVehicleId?.let { vehicleMap[it] }
+                val vehicleTripsCountDeferred = async {
+                    countAllCompletedTripsForVehicle(
+                        selectedVehicleId = selectedVehicleId,
+                        selectedVehicleName = selectedVehicle?.vehicleName,
+                        fallbackCount = completedTrips.size
+                    )
+                }
+
                 if (selectedVehicleId != null) {
                     val remindersResult = serviceReminderRepository.getServiceReminders(selectedVehicleId)
                     if (remindersResult.isSuccess) {
@@ -158,6 +188,7 @@ class DashboardViewModel(
                         reminderProgressList.addAll(progressResults.mapNotNull { it.getOrNull() })
                     }
                 }
+                val completedTripsCount = vehicleTripsCountDeferred.await()
 
                 _dashboardState.value = DashboardState.Success(
                     trips = trips,
@@ -248,21 +279,20 @@ class DashboardViewModel(
                 } else 0.0
                 val maxSpeed = trips.mapNotNull { it.maximumSpeed }.maxOrNull() ?: 0.0
                 val completedTrips = trips.filter { it.status == "COMPLETED" }
-
-                val totalTripsFromMeta = tripsResp?.resolveTotalCount(completedTrips.size) ?: completedTrips.size
-                val hasOngoing = allFetchedTrips.any { it.status == "ONGOING" }
-                val completedTripsCount = if (tripsResp?.total != null || tripsResp?.totalCount != null || tripsResp?.pagination?.total != null || tripsResp?.meta?.total != null) {
-                    maxOf(0, totalTripsFromMeta - (if (hasOngoing) 1 else 0))
-                } else {
-                    completedTrips.size
-                }
-
                 val totalPages = tripsResp?.resolveTotalPages(allFetchedTrips.size, 1, 10) ?: 1
 
-                // Fetch service progress for the selected vehicle
+                // Fetch service progress and total completed trip count for the selected vehicle
                 val reminderProgressList = mutableListOf<ServiceReminderProgressData>()
                 val selectedVehicleId = tokenManager.lastSelectedVehicleId ?: vehicles.firstOrNull { it.isDefault }?.id ?: vehicles.firstOrNull()?.id
-                
+                val selectedVehicle = selectedVehicleId?.let { vehicleMap[it] }
+                val vehicleTripsCountDeferred = async {
+                    countAllCompletedTripsForVehicle(
+                        selectedVehicleId = selectedVehicleId,
+                        selectedVehicleName = selectedVehicle?.vehicleName,
+                        fallbackCount = completedTrips.size
+                    )
+                }
+
                 if (selectedVehicleId != null) {
                     val remindersResult = serviceReminderRepository.getServiceReminders(selectedVehicleId)
                     if (remindersResult.isSuccess) {
@@ -274,6 +304,7 @@ class DashboardViewModel(
                         reminderProgressList.addAll(progressResults.mapNotNull { it.getOrNull() })
                     }
                 }
+                val completedTripsCount = vehicleTripsCountDeferred.await()
 
                 _dashboardState.value = DashboardState.Success(
                     trips = trips,
